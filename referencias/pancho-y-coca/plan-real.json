@@ -1,0 +1,24 @@
+{
+  "ritmo": "tranquilo",
+  "tramos": [
+    { "duracion": 0.97, "clip": "IMG_0672.MOV", "arrancaEn": 3.0, "texto": "El Pancho\ny la Coca", "nota": "Gancho: el mejor plano del pancho, antes de que arranque la voz" },
+    { "desde": 0, "hasta": 1.165, "clip": "IMG_0655.MOV", "arrancaEn": 48.17, "alternativas": ["IMG_0705.MOV"], "nota": "En plena estación de Martínez" },
+    { "desde": 1.165, "hasta": 2.682, "clip": "IMG_0638.MOV", "arrancaEn": 7.3, "nota": "abrió Lo de Pancho y Coca" },
+    { "duracion": 1.75, "clip": "IMG_0638.MOV", "arrancaEn": 8.817, "audioDelClip": true, "texto": "SÁCATE\nLAS GANAS", "nota": "¡Sácate las ganas! (lo dice el chico, con su audio)" },
+    { "desde": 2.682, "hasta": 3.815, "clip": "IMG_0635.MOV", "arrancaEn": 1.433, "alternativas": ["IMG_0701.MOV", "IMG_0668.MOV", "IMG_0669.MOV"], "nota": "un lugar donde podés comer rico" },
+    { "desde": 3.815, "hasta": 6.288, "clip": "IMG_0671.MOV", "arrancaEn": 1.7, "velocidad": 1.15, "nota": "rápido y tenés un montón de aderezos para elegir" },
+    { "desde": 6.288, "hasta": 6.77, "clip": "IMG_0671.MOV", "arrancaEn": 10.685, "alternativas": ["IMG_0672.MOV"], "nota": "Además (la mayonesa llena la pausa)" },
+    { "desde": 6.77, "hasta": 7.97, "clip": "IMG_0617.MOV", "arrancaEn": 0.7, "nota": "tienen licuados y gaseosas" },
+    { "desde": 7.97, "hasta": 9.17, "clip": "IMG_0691.MOV", "arrancaEn": 3.0, "texto": "2 PANCHOS\n+ GASEOSA\n$10.000", "nota": "y estas promos: dos" },
+    { "desde": 9.17, "hasta": 10.37, "clip": "IMG_0691.MOV", "arrancaEn": 7.3, "texto": "2 PANCHOS\n+ GASEOSA\n$10.000", "nota": "panchos con gaseosa por diez" },
+    { "desde": 10.37, "hasta": 12.003, "clip": "IMG_0672.MOV", "arrancaEn": 3.5, "alternativas": ["IMG_0671.MOV", "IMG_0634.MOV"], "texto": "1 PANCHO\n+ LICUADO\n$8.000", "nota": "mil pesos o un pancho con un licuado" },
+    { "desde": 12.003, "hasta": 14.37, "clip": "IMG_0700.MOV", "arrancaEn": 4.9, "texto": "1 PANCHO\n+ LICUADO\n$8.000", "nota": "de banana por ocho mil pesos. Y algo que es buenísimo es" },
+    { "desde": 14.37, "hasta": 17.637, "clip": "IMG_0608.MOV", "arrancaEn": 2.7, "alternativas": ["IMG_0635.MOV", "IMG_0647.MOV", "IMG_0651.MOV"], "nota": "que tienen dos ventanillas, una hacia la calle y otra hacia el andén" },
+    { "desde": 17.637, "hasta": 19.303, "clip": "IMG_0643.MOV", "arrancaEn": 2.4, "alternativas": ["IMG_0647.MOV", "IMG_0651.MOV"], "nota": "Podés sentarte a comer de cualquiera de los" },
+    { "desde": 19.303, "hasta": 20.77, "clip": "IMG_0655.MOV", "arrancaEn": 0.0, "alternativas": ["IMG_0703.MOV", "IMG_0647.MOV", "IMG_0651.MOV", "IMG_0661.MOV"], "nota": "dos lados o pedirlo para llevar" },
+    { "desde": 20.77, "hasta": 31.17, "clip": "IMG_0655.MOV", "arrancaEn": 1.9, "velocidad": 4.9, "alternativas": ["IMG_0705.MOV"], "nota": "Están en Eduardo Costa 2048... (caminata acelerada hasta la calle)" },
+    { "desde": 31.17, "hasta": 31.744, "clip": "IMG_0642.MOV", "arrancaEn": 2.6, "alternativas": ["IMG_0648.MOV", "IMG_0607.MOV"], "nota": "pancho (llega el tren)" },
+    { "duracion": 3.66, "clip": "IMG_0642.MOV", "arrancaEn": 3.174, "nota": "Sigue el tren, sin voz" },
+    { "duracion": 4.03, "clip": "IMG_0642.MOV", "arrancaEn": 6.8, "velocidad": 0, "logo": true, "nota": "Cierre: cuadro congelado con el logo" }
+  ]
+}

@@ -6,11 +6,13 @@
   "type": "module",
   "scripts": {
     "reel": "tsx src/cli.ts",
+    "ui": "tsx src/ui/iniciar.ts",
     "limpiar": "tsx src/cli.ts limpiar",
     "transcribir": "tsx src/cli.ts transcribir",
     "inventario": "tsx src/cli.ts inventario",
     "validar": "tsx src/cli.ts validar",
     "render": "tsx src/cli.ts render",
+    "comparar": "tsx src/cli.ts comparar",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/unit/*.test.ts",
     "test:e2e": "node --import tsx --test test/e2e/*.test.ts",

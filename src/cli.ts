@@ -1,9 +1,8 @@
 // Punto de entrada: npm run reel -- <paso> <carpeta>
-import { existsSync } from "node:fs";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { cargarEnv } from "./lib/entorno.js";
 import { ErrorReel } from "./lib/errores.js";
 import { abrirProyecto } from "./lib/proyecto.js";
+import { comparar } from "./pasos/comparar.js";
 import { inventario } from "./pasos/inventario.js";
 import { limpiar } from "./pasos/limpiar.js";
 import { render } from "./pasos/render.js";
@@ -12,6 +11,7 @@ import { validar } from "./pasos/validar.js";
 
 const PASOS = { limpiar, transcribir, inventario, validar, render } as const;
 type NombrePaso = keyof typeof PASOS;
+const TODOS = [...Object.keys(PASOS), "comparar"];
 
 const AYUDA = `Uso: npm run reel -- <paso> <carpeta>
 
@@ -22,21 +22,25 @@ Pasos (en orden):
   validar      revisa edit/plan.json
   render       genera edit/final.mp4
 
+Para probar la herramienta:
+  comparar     compara edit/plan.json con un plan de referencia
+               npm run comparar -- <carpeta> <referencia.json>
+
 Atajos: npm run limpiar -- <carpeta>, npm run render -- <carpeta>, etc.`;
 
-const raizRepo = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
-const archivoEnv = path.join(raizRepo, ".env");
-if (existsSync(archivoEnv)) process.loadEnvFile(archivoEnv);
+cargarEnv();
 
-const [nombre, carpeta] = process.argv.slice(2);
+const [nombre, carpeta, extra] = process.argv.slice(2);
 
-if (!nombre || !(nombre in PASOS)) {
+if (!nombre || !TODOS.includes(nombre)) {
   console.log(AYUDA);
   process.exit(nombre ? 1 : 0);
 }
 
 try {
-  await PASOS[nombre as NombrePaso](abrirProyecto(carpeta));
+  const proyecto = abrirProyecto(carpeta);
+  if (nombre === "comparar") await comparar(proyecto, extra);
+  else await PASOS[nombre as NombrePaso](proyecto);
 } catch (e) {
   if (e instanceof ErrorReel) {
     console.error(e.message);

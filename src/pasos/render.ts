@@ -1,15 +1,19 @@
 // Paso 5: arma el reel final siguiendo edit/plan.json.
-// Recorta cada tramo, lo pasa a 1080x1920, une todo, pone la voz, la música con ducking y los subtítulos.
+// Recorta cada tramo, lo pasa a 1080x1920, une todo, arma el audio (voz, audio de clips, música con ducking),
+// y pone subtítulos, textos grandes y logo.
 import { existsSync, mkdirSync, rmSync, writeFileSync } from "node:fs";
 import path from "node:path";
-import { MUSICA, SUBTITULOS, VIDEO } from "../config.js";
+import { LOGO, MUSICA, SUBTITULOS, TITULOS, VIDEO, VOZ } from "../config.js";
 import { filtroEncuadre } from "../lib/encuadre.js";
 import { ErrorReel } from "../lib/errores.js";
 import { ffmpeg, info, rutaParaFiltro } from "../lib/ffmpeg.js";
+import { agrupar, armarLinea, segmentosDeAudio, textosEnPantalla, vozAReel } from "../lib/linea.js";
 import { validarPlan } from "../lib/plan.js";
 import { leerJson, segundos, type Proyecto } from "../lib/proyecto.js";
 import { armarAss } from "../lib/subtitulos.js";
 import type { Palabra } from "../lib/transcripcion.js";
+
+const FORMATO_AUDIO = "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
 
 export async function render(p: Proyecto, log = console.log) {
   const r = await validarPlan(p);
@@ -17,8 +21,8 @@ export async function render(p: Proyecto, log = console.log) {
   if (!r.ok) {
     throw new ErrorReel([...r.errores.map((e) => `Error: ${e}`), "Arreglá el plan y volvé a correr el render."].join("\n"));
   }
-  const plan = r.plan!;
-  const duracionVoz = r.duracionVoz;
+  const tramos = r.plan!.tramos;
+  const { piezas, duracion } = armarLinea(tramos);
   const { ancho, alto, fps, crf } = VIDEO;
 
   // 1. Cada tramo a 1080x1920 y mismos fps.
@@ -27,11 +31,20 @@ export async function render(p: Proyecto, log = console.log) {
   mkdirSync(p.pedazos, { recursive: true });
 
   const lista: string[] = [];
-  for (const [i, t] of plan.tramos.entries()) {
-    const cuadros = Math.round(t.hasta * fps) - Math.round(t.desde * fps);
+  for (const [i, { tramo: t, inicio, fin }] of piezas.entries()) {
+    const cuadros = Math.round(fin * fps) - Math.round(inicio * fps);
     if (cuadros <= 0) continue;
+    const velocidad = t.velocidad ?? 1;
+    const mover =
+      velocidad === 0
+        ? `trim=end_frame=1,tpad=stop_mode=clone:stop_duration=${(fin - inicio + 1).toFixed(3)}`
+        : velocidad !== 1
+          ? `setpts=(PTS-STARTPTS)/${velocidad}`
+          : "";
+    const filtro = [mover, `fps=${fps}`, filtroEncuadre(t.encuadre, ancho, alto), "setsar=1", "format=yuv420p"]
+      .filter(Boolean)
+      .join(",");
     const salida = path.join(p.pedazos, `${String(i + 1).padStart(3, "0")}.mp4`);
-    const filtro = `${filtroEncuadre(t.encuadre, ancho, alto)},fps=${fps},setsar=1,format=yuv420p`;
     await ffmpeg([
       "-ss", t.arrancaEn.toFixed(3),
       "-i", path.join(p.carpetaClips, t.clip),
@@ -42,7 +55,8 @@ export async function render(p: Proyecto, log = console.log) {
       salida,
     ]);
     lista.push(`file '${salida.replace(/'/g, "'\\''")}'`);
-    log(`Tramo ${i + 1}/${plan.tramos.length}: ${t.clip} (${cuadros} cuadros)`);
+    const extra = velocidad === 0 ? ", congelado" : velocidad !== 1 ? `, velocidad ${velocidad}` : "";
+    log(`Tramo ${i + 1}/${piezas.length}: ${t.clip} (${cuadros} cuadros${extra})`);
   }
 
   // 2. Unir los pedazos (tienen el mismo formato, así que se pegan sin volver a codificar)
@@ -51,44 +65,86 @@ export async function render(p: Proyecto, log = console.log) {
   const videoUnido = path.join(p.edit, "video-unido.mp4");
   await ffmpeg(["-f", "concat", "-safe", "0", "-i", archivoLista, "-c", "copy", videoUnido]);
 
-  // 3. Subtítulos
-  let filtroVideo = "null";
-  if (SUBTITULOS.activados) {
-    if (existsSync(p.transcripcion)) {
-      const { words } = leerJson<{ words: Palabra[] }>(p.transcripcion);
-      const archivoAss = path.join(p.edit, "subtitulos.ass");
-      writeFileSync(archivoAss, armarAss(words));
-      filtroVideo = `ass='${rutaParaFiltro(archivoAss)}'`;
+  const entradas = ["-i", videoUnido, "-i", p.vozLimpia];
+  let siguienteEntrada = 2;
+  const filtros: string[] = [];
+
+  // 3. Subtítulos y textos grandes, con los tiempos pasados de la voz al reel
+  const palabras = existsSync(p.transcripcion) ? leerJson<{ words: Palabra[] }>(p.transcripcion).words : [];
+  if (SUBTITULOS.activados && palabras.length === 0) console.warn("Aviso: no hay transcripción, el reel sale sin subtítulos.");
+  const subtitulos = (SUBTITULOS.activados ? palabras : [])
+    .filter((w) => w.type === "word")
+    .map((w) => {
+      const start = vozAReel(w.start, tramos);
+      return { ...w, start, end: start + (w.end - w.start) };
+    });
+  const textos = textosEnPantalla(tramos, palabras, TITULOS.pasoSinVoz);
+  let video = "[0:v]";
+  if (subtitulos.length || textos.length) {
+    const archivoAss = path.join(p.edit, "subtitulos.ass");
+    writeFileSync(archivoAss, armarAss(subtitulos, textos));
+    filtros.push(`${video}ass='${rutaParaFiltro(archivoAss)}'[conTextos]`);
+    video = "[conTextos]";
+  }
+
+  // 4. Logo en el centro, con un fundido de entrada
+  const conLogo = agrupar(tramos, (t) => (t.logo ? "logo" : undefined));
+  if (conLogo.length) {
+    entradas.push("-loop", "1", "-t", duracion.toFixed(3), "-i", p.logo!);
+    const cuando = conLogo.map((g) => `between(t,${g.inicio.toFixed(3)},${g.fin.toFixed(3)})`).join("+");
+    filtros.push(
+      `[${siguienteEntrada++}:v]scale=${LOGO.ancho}:-1,format=rgba,fade=t=in:st=${conLogo[0].inicio.toFixed(3)}:d=${LOGO.fundido}:alpha=1[logo]`,
+      `${video}[logo]overlay=(W-w)/2:(H-h)/2:enable='${cuando}'[video]`,
+    );
+    log(`Logo: ${path.basename(p.logo!)}`);
+  } else {
+    filtros.push(`${video}null[video]`);
+  }
+
+  // 5. Audio en orden: voz limpia, silencios (solo música) y el audio de los clips que lo usan
+  const segmentos = segmentosDeAudio(tramos);
+  const pedazosDeVoz = segmentos.filter((s) => s.tipo === "voz").length;
+  const nombresVoz = Array.from({ length: pedazosDeVoz }, (_, i) => `[voz${i}]`);
+  filtros.push(`[1:a]${FORMATO_AUDIO},asplit=${pedazosDeVoz}${nombresVoz.join("")}`);
+  const fundidos = (d: number) => `afade=t=in:d=${VOZ.fundido},afade=t=out:st=${Math.max(0, d - VOZ.fundido).toFixed(3)}:d=${VOZ.fundido}`;
+  let vozUsada = 0;
+  for (const [k, s] of segmentos.entries()) {
+    if (s.tipo === "voz") {
+      const d = s.hasta - s.desde;
+      filtros.push(`${nombresVoz[vozUsada++]}atrim=start=${s.desde.toFixed(3)}:end=${s.hasta.toFixed(3)},asetpts=PTS-STARTPTS,${fundidos(d)}[s${k}]`);
+    } else if (s.tipo === "silencio") {
+      filtros.push(`anullsrc=r=48000:cl=stereo,atrim=duration=${s.duracion.toFixed(3)},${FORMATO_AUDIO}[s${k}]`);
     } else {
-      console.warn("Aviso: no hay transcripción, el reel sale sin subtítulos.");
+      entradas.push("-ss", s.arrancaEn.toFixed(3), "-t", s.duracion.toFixed(3), "-i", path.join(p.carpetaClips, s.clip));
+      filtros.push(
+        `[${siguienteEntrada++}:a]${FORMATO_AUDIO},apad,atrim=duration=${s.duracion.toFixed(3)},asetpts=PTS-STARTPTS,${fundidos(s.duracion)}[s${k}]`,
+      );
     }
   }
+  filtros.push(`${segmentos.map((_, k) => `[s${k}]`).join("")}concat=n=${segmentos.length}:v=0:a=1[dialogo]`);
 
-  // 4. Audio: voz + música con ducking (la música baja sola cuando hablás)
-  const entradas = ["-i", videoUnido, "-i", p.vozLimpia];
-  const formato = "aformat=sample_fmts=fltp:sample_rates=48000:channel_layouts=stereo";
-  let filtroAudio: string;
+  // Música con ducking: baja sola cuando se habla (la voz en off o alguien en un clip)
   if (p.musica) {
     entradas.push("-stream_loop", "-1", "-i", p.musica);
-    const finMusica = Math.max(0, duracionVoz - 1.5).toFixed(2);
-    filtroAudio = [
-      `[1:a]${formato},asplit=2[voz][llave]`,
-      `[2:a]${formato},volume=${MUSICA.volumen}[mus]`,
+    const finMusica = Math.max(0, duracion - 1.5).toFixed(2);
+    filtros.push(
+      `[dialogo]asplit=2[voz][llave]`,
+      `[${siguienteEntrada++}:a]${FORMATO_AUDIO},volume=${MUSICA.volumen}[mus]`,
       `[mus][llave]sidechaincompress=threshold=${MUSICA.umbral}:ratio=${MUSICA.ratio}:attack=${MUSICA.ataqueMs}:release=${MUSICA.soltarMs},afade=t=out:st=${finMusica}:d=1.5[fondo]`,
       `[voz][fondo]amix=inputs=2:duration=first:normalize=0[audio]`,
-    ].join(";");
+    );
     log(`Música: ${path.basename(p.musica)} (con ducking)`);
   } else {
-    filtroAudio = `[1:a]${formato}[audio]`;
+    filtros.push(`[dialogo]anull[audio]`);
   }
 
-  // 5. Render final
+  // 6. Render final
   await ffmpeg([
     ...entradas,
-    "-filter_complex", `[0:v]${filtroVideo}[video];${filtroAudio}`,
+    "-filter_complex", filtros.join(";"),
     "-map", "[video]",
     "-map", "[audio]",
-    "-t", duracionVoz.toFixed(3),
+    "-t", duracion.toFixed(3),
     "-c:v", "libx264", "-preset", "medium", "-crf", "20", "-maxrate", "8M", "-bufsize", "16M",
     "-pix_fmt", "yuv420p", "-r", String(fps),
     "-c:a", "aac", "-b:a", "192k",

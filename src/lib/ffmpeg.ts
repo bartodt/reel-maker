@@ -1,4 +1,5 @@
 import { spawn } from "node:child_process";
+import { statSync } from "node:fs";
 
 /** Corre un comando y devuelve lo que imprime. Si falla, tira error con el detalle. */
 export function correr(comando: string, args: string[]): Promise<Buffer> {
@@ -32,8 +33,29 @@ export interface InfoMedio {
   tieneAudio: boolean;
 }
 
+// Lo que ya se leyó con ffprobe, mientras el archivo no cambie (la app pregunta lo mismo muchas veces)
+const yaLeidos = new Map<string, { version: string; datos: Promise<InfoMedio> }>();
+
 /** Lee duración, tamaño y fps de un archivo con ffprobe. */
-export async function info(archivo: string): Promise<InfoMedio> {
+export function info(archivo: string): Promise<InfoMedio> {
+  let version = "";
+  try {
+    const s = statSync(archivo);
+    version = `${s.mtimeMs}:${s.size}`;
+  } catch {
+    // Si no existe, que ffprobe dé el error
+  }
+  const guardado = yaLeidos.get(archivo);
+  if (version && guardado?.version === version) return guardado.datos;
+  const datos = leerInfo(archivo);
+  if (version) {
+    yaLeidos.set(archivo, { version, datos });
+    datos.catch(() => yaLeidos.delete(archivo));
+  }
+  return datos;
+}
+
+async function leerInfo(archivo: string): Promise<InfoMedio> {
   const json = await correr("ffprobe", [
     "-v", "error",
     "-print_format", "json",

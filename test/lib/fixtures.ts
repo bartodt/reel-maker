@@ -20,6 +20,13 @@ export async function crearProyectoDePrueba(opciones: { conMusica?: boolean } = 
 
   await ffmpeg(["-f", "lavfi", "-i", "testsrc2=size=1920x1080:rate=30", "-t", "5", "-pix_fmt", "yuv420p", path.join(clips, "horizontal.mp4")]);
   await ffmpeg(["-f", "lavfi", "-i", "testsrc2=size=1080x1920:rate=25", "-t", "4", "-pix_fmt", "yuv420p", path.join(clips, "vertical.mov")]);
+  // Alguien "hablando" a cámara: un clip con su propio audio (un tono más agudo que la voz)
+  await ffmpeg([
+    "-f", "lavfi", "-i", "testsrc2=size=1080x1920:rate=30",
+    "-f", "lavfi", "-i", "sine=f=660",
+    "-t", "4", "-pix_fmt", "yuv420p", "-shortest", path.join(clips, "con-audio.mp4"),
+  ]);
+  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=300x150", "-frames:v", "1", path.join(raiz, "logo.png")]);
   await ffmpeg(["-f", "lavfi", "-i", `sine=f=440:d=${DURACION_VOZ}`, path.join(raiz, "voz.wav")]);
   await ffmpeg(["-f", "lavfi", "-i", `sine=f=440:d=${DURACION_VOZ}`, "-ar", "48000", path.join(edit, "voz-limpia.wav")]);
   if (opciones.conMusica) {
