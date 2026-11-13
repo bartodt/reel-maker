@@ -1,0 +1,91 @@
+import { spawn } from "node:child_process";
+
+/** Corre un comando y devuelve lo que imprime. Si falla, tira error con el detalle. */
+export function correr(comando: string, args: string[]): Promise<Buffer> {
+  return new Promise((resolve, reject) => {
+    const proceso = spawn(comando, args);
+    const salida: Buffer[] = [];
+    const errores: Buffer[] = [];
+    proceso.stdout.on("data", (d: Buffer) => salida.push(d));
+    proceso.stderr.on("data", (d: Buffer) => errores.push(d));
+    proceso.on("error", (e) =>
+      reject(new Error(`No se pudo ejecutar ${comando}. ¿Está instalado? (${e.message})`)),
+    );
+    proceso.on("close", (codigo) => {
+      if (codigo === 0) return resolve(Buffer.concat(salida));
+      const detalle = Buffer.concat(errores).toString().split("\n").slice(-15).join("\n");
+      reject(new Error(`${comando} terminó con error (${codigo}):\n${detalle}`));
+    });
+  });
+}
+
+export function ffmpeg(args: string[]): Promise<Buffer> {
+  return correr("ffmpeg", ["-hide_banner", "-loglevel", "error", "-y", ...args]);
+}
+
+export interface InfoMedio {
+  duracion: number;
+  ancho?: number;
+  alto?: number;
+  fps?: number;
+  rotacion?: number;
+  tieneAudio: boolean;
+}
+
+/** Lee duración, tamaño y fps de un archivo con ffprobe. */
+export async function info(archivo: string): Promise<InfoMedio> {
+  const json = await correr("ffprobe", [
+    "-v", "error",
+    "-print_format", "json",
+    "-show_format",
+    "-show_streams",
+    archivo,
+  ]);
+  const datos = JSON.parse(json.toString());
+  const video = datos.streams.find((s: any) => s.codec_type === "video");
+  const audio = datos.streams.find((s: any) => s.codec_type === "audio");
+
+  let fps: number | undefined;
+  if (video?.avg_frame_rate && video.avg_frame_rate !== "0/0") {
+    const [n, d] = video.avg_frame_rate.split("/").map(Number);
+    fps = d ? Math.round((n / d) * 100) / 100 : undefined;
+  }
+
+  // Los videos de celular a veces vienen "acostados" con una marca de rotación
+  const rotacion = Number(
+    video?.side_data_list?.find((s: any) => s.rotation !== undefined)?.rotation ??
+      video?.tags?.rotate ??
+      0,
+  );
+  const girado = Math.abs(rotacion) === 90 || Math.abs(rotacion) === 270;
+
+  return {
+    duracion: Number(datos.format.duration),
+    ancho: girado ? video?.height : video?.width,
+    alto: girado ? video?.width : video?.height,
+    fps,
+    rotacion,
+    tieneAudio: Boolean(audio),
+  };
+}
+
+/** Decodifica un audio a mono, 16 kHz, como números para el detector de voz. */
+export async function audioComoNumeros(archivo: string): Promise<Float32Array> {
+  const crudo = await correr("ffmpeg", [
+    "-hide_banner", "-loglevel", "error",
+    "-i", archivo,
+    "-ac", "1",
+    "-ar", "16000",
+    "-f", "f32le",
+    "pipe:1",
+  ]);
+  // Copia a un buffer alineado para poder leerlo como Float32
+  const alineado = new Uint8Array(crudo.byteLength);
+  alineado.set(crudo);
+  return new Float32Array(alineado.buffer);
+}
+
+/** Escapa una ruta para usarla dentro de un filtro de ffmpeg (por ejemplo ass=...). */
+export function rutaParaFiltro(ruta: string): string {
+  return ruta.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
+}
