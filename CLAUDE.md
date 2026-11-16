@@ -8,6 +8,7 @@ Para USAR la herramienta sobre una carpeta de videos está la skill `.claude/ski
 - `npm run ui`: abre la app (servidor local en http://localhost:4321 + navegador). Es como la usa la creadora de contenido.
 - `npm run reel -- <paso> <carpeta>`: corre un paso (limpiar, transcribir, inventario, validar, render, edits)
 - `npm run comparar -- <carpeta> <referencia.json>`: compara el plan de una carpeta con una edición hecha a mano (ver `referencias/README.md`)
+- `npm run reconstruir -- <carpeta> <publicado.mp4>`: busca cada plano de un reel ya publicado en los clips de la carpeta, para armar una referencia (ver `referencias/README.md`)
 - `npm run typecheck`: chequeo de tipos
 - `npm test`: tests rápidos (lógica pura y validación del plan)
 - `npm run test:e2e`: render completo con material generado por ffmpeg (tarda ~1 minuto)
@@ -18,7 +19,7 @@ Para USAR la herramienta sobre una carpeta de videos está la skill `.claude/ski
 - `src/cli.ts`: lee los argumentos, carga `.env` y llama al paso.
 - `src/pasos/`: un archivo por paso. Cada uno exporta una función `async (proyecto, log)`.
 - `src/lib/`: piezas reutilizables. La lógica pura (sin ffmpeg ni red) va acá y lleva test en `test/unit/`:
-  `voz.ts` (qué partes de la voz conservar), `transcripcion.ts` (frases), `subtitulos.ts` (archivo .ass con subtítulos y textos grandes), `encuadre.ts` (recorte), `plan.ts` (formato y validación de plan.json), `linea.ts` (dónde cae cada tramo en el reel, qué audio suena, cuándo aparece cada palabra de los textos), `capturas.ts` (momentos de las capturas del inventario), `montaje.ts` (qué va en la línea de tiempo de Edits y cómo corregir sus subtítulos), `comparar.ts` (plan contra edición de referencia), `paralelo.ts` (correr cosas de a varias).
+  `voz.ts` (qué partes de la voz conservar), `transcripcion.ts` (frases), `subtitulos.ts` (archivo .ass con subtítulos y textos grandes), `encuadre.ts` (recorte), `plan.ts` (formato y validación de plan.json), `linea.ts` (dónde cae cada tramo en el reel, qué audio suena, cuándo aparece cada palabra de los textos), `capturas.ts` (momentos de las capturas del inventario), `montaje.ts` (qué va en la línea de tiempo de Edits y cómo corregir sus subtítulos), `comparar.ts` (plan contra edición de referencia), `emparejar.ts` (qué clip, momento y velocidad hay en cada plano de un reel publicado), `paralelo.ts` (correr cosas de a varias).
   Para la app: `estado.ts` (en qué paso está un reel), `nombres.ts` (nombres de carpetas y archivos subidos), `actividad.ts` (traduce lo que hace Claude a frases simples).
 - `src/ui/`: la app. `servidor.ts` (rutas, sin dependencias: `node:http`), `reels.ts` (leer y guardar cosas de un reel), `trabajos.ts` (lo que tarda corre en segundo plano: preparar, render y `claude -p`), `cuadros.ts` (miniaturas en `edit/miniaturas/`), `iniciar.ts` (entrada de `npm run ui`).
   `src/ui/web/`: la página, en JavaScript sin compilar (módulos ES). `cortes.js` es el storyboard: se mira, no se edita. Los cambios se le piden a Claude o se hacen en Edits.
