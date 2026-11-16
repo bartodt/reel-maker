@@ -1,7 +1,7 @@
 // Punto de entrada: npm run reel -- <paso> <carpeta>
 import { cargarEnv } from "./lib/entorno.js";
 import { ErrorReel } from "./lib/errores.js";
-import { abrirProyecto } from "./lib/proyecto.js";
+import { abrirProyecto, type Proyecto } from "./lib/proyecto.js";
 import { comparar } from "./pasos/comparar.js";
 import { mandarAEdits } from "./pasos/edits.js";
 import { inventario } from "./pasos/inventario.js";
@@ -12,9 +12,21 @@ import { render } from "./pasos/render.js";
 import { transcribir } from "./pasos/transcribir.js";
 import { validar } from "./pasos/validar.js";
 
-const PASOS = { limpiar, transcribir, inventario, validar, render, edits: mandarAEdits } as const;
-const CON_ARCHIVO = { comparar, reconstruir } as const;
-const TODOS = [...Object.keys(PASOS), ...Object.keys(CON_ARCHIVO), "medir"];
+type Comando = (carpeta?: string, archivo?: string) => Promise<unknown>;
+const paso = (f: (p: Proyecto) => Promise<unknown>): Comando => (carpeta) => f(abrirProyecto(carpeta));
+const conArchivo = (f: (p: Proyecto, archivo?: string) => Promise<unknown>): Comando => (carpeta, archivo) => f(abrirProyecto(carpeta), archivo);
+
+const COMANDOS: Record<string, Comando> = {
+  limpiar: paso(limpiar),
+  transcribir: paso(transcribir),
+  inventario: paso(inventario),
+  validar: paso(validar),
+  render: paso(render),
+  edits: paso(mandarAEdits),
+  comparar: conArchivo(comparar),
+  reconstruir: conArchivo(reconstruir),
+  medir: (carpeta) => medir(carpeta),
+};
 
 const AYUDA = `Uso: npm run reel -- <paso> <carpeta>
 
@@ -40,15 +52,13 @@ cargarEnv();
 
 const [nombre, carpeta, extra] = process.argv.slice(2);
 
-if (!nombre || !TODOS.includes(nombre)) {
+if (!nombre || !Object.hasOwn(COMANDOS, nombre)) {
   console.log(AYUDA);
   process.exit(nombre ? 1 : 0);
 }
 
 try {
-  if (nombre === "medir") await medir(carpeta);
-  else if (nombre in CON_ARCHIVO) await CON_ARCHIVO[nombre as keyof typeof CON_ARCHIVO](abrirProyecto(carpeta), extra);
-  else await PASOS[nombre as keyof typeof PASOS](abrirProyecto(carpeta));
+  await COMANDOS[nombre](carpeta, extra);
 } catch (e) {
   if (e instanceof ErrorReel) {
     console.error(e.message);
