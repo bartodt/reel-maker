@@ -1,9 +1,15 @@
-// Lógica pura de la app: en qué paso está un reel, nombres de carpetas y archivos, y qué está haciendo Claude.
+// Lógica de la app: en qué paso está un reel, nombres de carpetas y archivos, qué está haciendo Claude y el interruptor de subtítulos.
 import assert from "node:assert/strict";
+import { mkdtempSync, readFileSync } from "node:fs";
+import { tmpdir } from "node:os";
+import path from "node:path";
 import { test } from "node:test";
 import { describirHerramienta, entornoParaClaude, leerLinea, leerSesion } from "../../src/lib/actividad.js";
 import { etapaActual, pasosHechos, type Archivos } from "../../src/lib/estado.js";
 import { nombreDeArchivoSeguro, nombreDeCarpeta, nombreLibre, tituloDeCarpeta } from "../../src/lib/nombres.js";
+import { abrirProyecto } from "../../src/lib/proyecto.js";
+import { deshacer, ponerSubtitulos } from "../../src/ui/reels.js";
+import { PLAN_VALIDO, escribirPlan } from "../lib/fixtures.js";
 
 const COMPLETO: Archivos = {
   clips: ["a.mov", "b.mov"],
@@ -107,4 +113,24 @@ test("sabe si Claude tiene la sesión iniciada", () => {
   assert.equal(leerSesion('{"loggedIn": false, "authMethod": "none"}'), false);
   assert.equal(leerSesion('{"loggedIn": true}'), true);
   assert.equal(leerSesion("Usage: claude ..."), true); // versión vieja sin "auth status": se prueba igual
+});
+
+test("el interruptor de subtítulos cambia el plan y se puede deshacer", () => {
+  const p = abrirProyecto(mkdtempSync(path.join(tmpdir(), "reel-subtitulos-")));
+  escribirPlan(p.raiz, PLAN_VALIDO);
+  const plan = () => JSON.parse(readFileSync(p.plan, "utf8"));
+
+  ponerSubtitulos(p, true);
+  assert.throws(() => deshacer(p), /nada para deshacer/, "si no cambió nada, no deja nada para deshacer");
+
+  ponerSubtitulos(p, false);
+  assert.equal(plan().subtitulos, false);
+  assert.deepEqual(plan().tramos, PLAN_VALIDO.tramos);
+  deshacer(p);
+  assert.ok(!("subtitulos" in plan()));
+  assert.throws(() => deshacer(p), /nada para deshacer/);
+
+  ponerSubtitulos(p, false);
+  ponerSubtitulos(p, true);
+  assert.ok(!("subtitulos" in plan()), "prendidos es lo que viene por defecto: no hace falta anotarlo");
 });

@@ -20,9 +20,9 @@ Para USAR la herramienta sobre una carpeta de videos está la skill `.claude/ski
 - `src/pasos/`: un archivo por paso. Cada uno exporta una función `async (proyecto, log)`.
 - `src/lib/`: piezas reutilizables. La lógica pura (sin ffmpeg ni red) va acá y lleva test en `test/unit/`:
   `voz.ts` (qué partes de la voz conservar), `transcripcion.ts` (frases), `subtitulos.ts` (archivo .ass con subtítulos y textos grandes), `encuadre.ts` (recorte), `plan.ts` (formato y validación de plan.json), `linea.ts` (dónde cae cada tramo en el reel, qué audio suena, cuándo aparece cada palabra de los textos), `capturas.ts` (momentos de las capturas del inventario), `montaje.ts` (qué va en la línea de tiempo de Edits, cómo corregir sus subtítulos y en qué difiere lo que quedó en Edits del plan), `comparar.ts` (plan contra edición de referencia), `paralelo.ts` (correr cosas de a varias).
-  Para la app: `edicion.ts` (cambios al plan: cambiar un plano, mover un corte, partir, sacar), `estado.ts` (en qué paso está un reel), `nombres.ts` (nombres de carpetas y archivos subidos), `actividad.ts` (traduce lo que hace Claude a frases simples).
+  Para la app: `estado.ts` (en qué paso está un reel), `nombres.ts` (nombres de carpetas y archivos subidos), `actividad.ts` (traduce lo que hace Claude a frases simples).
 - `src/ui/`: la app. `servidor.ts` (rutas, sin dependencias: `node:http`), `reels.ts` (leer y guardar cosas de un reel), `trabajos.ts` (lo que tarda corre en segundo plano: preparar, render y `claude -p`), `cuadros.ts` (miniaturas en `edit/miniaturas/`), `iniciar.ts` (entrada de `npm run ui`).
-  `src/ui/web/`: la página, en JavaScript sin compilar (módulos ES). `cortes.js` es el storyboard y el editor de cada plano.
+  `src/ui/web/`: la página, en JavaScript sin compilar (módulos ES). `cortes.js` es el storyboard: se mira, no se edita. Los cambios se le piden a Claude o se hacen en Edits.
 - `src/lib/edits.ts`: habla con Edits para Mac (su servidor MCP en 127.0.0.1:19501, clave `EDITS_TOKEN`). `src/pasos/edits.ts` arma el reel ahí. `scripts/verificar-edits.ts` lo prueba contra Edits real.
 - `src/lib/ffmpeg.ts`: todo lo que llama a ffmpeg/ffprobe pasa por acá (`info` guarda lo que ya leyó mientras el archivo no cambie). `src/lib/vad.ts`: el detector de voz (Silero).
 - `src/config.ts`: valores ajustables (tamaños, silencios, subtítulos, textos, logo, ritmos, capturas, música).
@@ -33,7 +33,7 @@ Para USAR la herramienta sobre una carpeta de videos está la skill `.claude/ski
 
 - Textos para el usuario (logs, errores, README) en español rioplatense, simple y sin tecnicismos.
 - Errores esperados (falta un archivo, plan mal armado) se tiran con `ErrorReel`; la CLI los muestra sin stack trace. Nada de `process.exit` fuera de `cli.ts`.
-- Si agregás un campo a `plan.json`, actualizá en el mismo cambio: el tipo en `src/lib/plan.ts`, su validación, su test, la skill, el README y, si se puede tocar a mano, el editor de la app (`src/lib/edicion.ts` y `src/ui/web/cortes.js`).
+- Si agregás un campo a `plan.json`, actualizá en el mismo cambio: el tipo en `src/lib/plan.ts`, su validación, su test, la skill y el README.
 - La app es para alguien que no programa: textos cortos, sin nombres de campos ni de archivos internos, y todo cambio al plan se puede deshacer (`guardarVersion` antes de escribir).
 - El servidor de la app solo escucha en esta compu y rechaza pedidos de otros sitios (revisa el `Host` y pide el encabezado `x-reel` para cambiar algo). No lo saques.
 - Los tiempos de los tramos con voz (`desde`/`hasta`) son siempre sobre la voz limpia, no sobre la voz original. Los tramos sin voz tienen `duracion` y empujan la voz para adelante; para pasar un segundo de la voz al reel terminado está `vozAReel` en `linea.ts`.
