@@ -91,7 +91,7 @@ export const APP = {
 export const EDITS = {
   // Dónde escucha Edits para Mac cuando está activado su servidor de automatización (Ajustes › Automation)
   url: "http://127.0.0.1:19501/mcp",
-  // Edits solo puede abrir archivos de la carpeta Películas: el material del reel se copia acá
+  // Edits solo puede abrir archivos de la carpeta Películas: el material del reel se copia acá (o a EDITS_CARPETA)
   carpeta: "~/Movies/reel-maker",
   textos: {
     tamano: 38,

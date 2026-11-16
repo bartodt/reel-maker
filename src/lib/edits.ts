@@ -65,11 +65,24 @@ export class Edits {
 
   /** Usa una herramienta de Edits y devuelve lo que contesta. Si Edits dice que no pudo, tira un error con su mensaje. */
   async usar<T = Datos>(herramienta: string, argumentos: Datos = {}): Promise<T> {
+    return (await this.llamar(herramienta, argumentos)).datos as T;
+  }
+
+  /** El cuadro del reel en ese segundo, tal como lo exporta Edits (JPEG). */
+  async cuadro(segundos: number, ancho = 720): Promise<Buffer> {
+    const { contenido } = await this.llamar("captureFrame", { atSeconds: segundos, maxWidth: ancho });
+    const imagen = contenido.find((c) => c.type === "image")?.data;
+    if (!imagen) throw new Error(`Edits no devolvió el cuadro del segundo ${segundos}`);
+    return Buffer.from(imagen, "base64");
+  }
+
+  private async llamar(herramienta: string, argumentos: Datos) {
     const resultado = (await this.pedir("tools/call", { name: herramienta, arguments: argumentos })) as {
-      content?: { type: string; text?: string }[];
+      content?: { type: string; text?: string; data?: string }[];
       isError?: boolean;
     };
-    const texto = resultado.content?.find((c) => c.type === "text")?.text ?? "{}";
+    const contenido = resultado.content ?? [];
+    const texto = contenido.find((c) => c.type === "text")?.text ?? "{}";
     let datos: Datos;
     try {
       datos = JSON.parse(texto) as Datos;
@@ -79,7 +92,7 @@ export class Edits {
     if (resultado.isError || datos.ok === false) {
       throw new Error(`Edits no pudo hacer ${herramienta}: ${String(datos.error ?? texto).slice(0, 400)}`);
     }
-    return datos as T;
+    return { datos, contenido };
   }
 }
 
