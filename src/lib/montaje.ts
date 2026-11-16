@@ -135,8 +135,102 @@ export function corregirSubtitulos(subtitulos: SubtituloDeEdits[], palabras: Pal
 
   const correcciones: Correccion[] = subtitulos.filter(delClip).map((s) => ({ id: s.id, accion: "borrar" as const }));
   for (const s of deVoz) {
-    const texto = asignadas.get(s.id)!.join(" ");
+    // Edits no muestra el punto ni los dos puntos del final de un subtítulo
+    const texto = asignadas.get(s.id)!.join(" ").replace(/[.:]+$/, "");
     if (texto && texto !== s.text) correcciones.push({ id: s.id, accion: "cambiar", texto });
   }
   return correcciones;
+}
+
+export interface ElementoDeEdits {
+  id: string;
+  trackId: string;
+  /** "video" es la pista principal */
+  trackType: string;
+  /** Edits llama "music" a cualquier audio */
+  content: string;
+  startTime: number;
+  endTime: number;
+  sourceInPoint?: number;
+  sourceOutPoint?: number;
+  speed?: number;
+  volume?: number;
+  text?: string;
+  animation?: string;
+}
+
+/** Segundos. Edits redondea los tiempos a sus cuadros: en Pancho y Coca (19 planos) lo más que se corrió fue 0,013 s. */
+export const TOLERANCIA_EDITS = 0.1;
+
+const distinto = (a: number | undefined, b: number) => a === undefined || Math.abs(a - b) > TOLERANCIA_EDITS;
+const seg = (n: number | undefined) => (n === undefined ? "?" : n.toFixed(2));
+
+/** Los subtítulos coinciden si ya no queda nada para corregir con la transcripción. */
+export function diferenciasConEdits(
+  m: Montaje,
+  elementos: ElementoDeEdits[],
+  subtitulos: SubtituloDeEdits[],
+  palabras: Palabra[],
+  tramos: Tramo[],
+): string[] {
+  const dif: string[] = [];
+
+  const principal = elementos.filter((e) => e.trackType === "video").sort((a, b) => a.startTime - b.startTime);
+  if (principal.length !== m.planos.length) {
+    dif.push(`En la pista principal hay ${principal.length} planos y el plan tiene ${m.planos.length}.`);
+  }
+  for (const [i, plano] of m.planos.entries()) {
+    const e = principal[i];
+    if (!e) break;
+    const n = `Plano ${i + 1}`;
+    if (distinto(e.startTime, plano.inicio) || distinto(e.endTime, plano.fin)) {
+      dif.push(`${n}: en Edits va de ${seg(e.startTime)} a ${seg(e.endTime)} s y en el plan de ${seg(plano.inicio)} a ${seg(plano.fin)} s.`);
+    }
+    if (plano.congelado) {
+      if (e.content !== "photo") dif.push(`${n}: tenía que ser una imagen congelada y en Edits es ${e.content}.`);
+      continue;
+    }
+    if (distinto(e.sourceInPoint, plano.desde)) dif.push(`${n}: arranca en el segundo ${seg(e.sourceInPoint)} del clip y en el plan en ${seg(plano.desde)}.`);
+    if (distinto(e.speed, plano.velocidad)) dif.push(`${n}: va a velocidad ${seg(e.speed)} y en el plan a ${seg(plano.velocidad)}.`);
+    if (plano.audioDelClip !== (e.volume ?? 1) > 0) {
+      dif.push(`${n}: ${plano.audioDelClip ? "tenía que sonar el audio del clip y está en silencio" : "tenía que ir sin el audio del clip y suena"}.`);
+    }
+  }
+
+  const audios = elementos.filter((e) => e.trackType === "audio");
+  for (const [i, pedazo] of m.voz.entries()) {
+    const esta = audios.some((e) => !distinto(e.startTime, pedazo.inicio) && !distinto(e.sourceInPoint, pedazo.desde) && !distinto(e.sourceOutPoint, pedazo.hasta));
+    if (!esta) dif.push(`Voz ${i + 1}: no está el pedazo de ${seg(pedazo.desde)} a ${seg(pedazo.hasta)} s de la voz en el segundo ${seg(pedazo.inicio)}.`);
+  }
+
+  const deSubtitulo = new Set(subtitulos.map((c) => c.id));
+  const textos = elementos.filter((e) => e.content === "text" && !deSubtitulo.has(e.id));
+  for (const texto of m.textos) {
+    const nombre = `Texto "${texto.texto.replace(/\n/g, " / ")}"`;
+    const e = textos.find((x) => x.text === texto.texto);
+    if (!e) dif.push(`${nombre}: no está en Edits.`);
+    else if (distinto(e.startTime, texto.inicio) || distinto(e.endTime, texto.fin)) {
+      dif.push(`${nombre}: en Edits va de ${seg(e.startTime)} a ${seg(e.endTime)} s y en el plan de ${seg(texto.inicio)} a ${seg(texto.fin)} s.`);
+    } else if (e.animation !== texto.animacion) dif.push(`${nombre}: tiene la animación ${e.animation} y tenía que ser ${texto.animacion}.`);
+  }
+  if (textos.length > m.textos.length) dif.push(`Hay ${textos.length} textos en Edits y el plan tiene ${m.textos.length}.`);
+
+  const fotos = elementos.filter((e) => e.trackType === "overlay" && e.content === "photo");
+  for (const logo of m.logos) {
+    if (!fotos.some((e) => !distinto(e.startTime, logo.inicio) && !distinto(e.endTime, logo.fin))) {
+      dif.push(`Logo: no está de ${seg(logo.inicio)} a ${seg(logo.fin)} s.`);
+    }
+  }
+
+  if (m.subtitulos && subtitulos.length === 0) dif.push("No hay subtítulos.");
+  if (!m.subtitulos && subtitulos.length > 0) dif.push("Hay subtítulos y el plan va sin subtítulos.");
+  for (const c of corregirSubtitulos(subtitulos, palabras, tramos, ratosConAudioDelClip(m))) {
+    const sub = subtitulos.find((x) => x.id === c.id)!;
+    dif.push(
+      c.accion === "borrar"
+        ? `Subtítulo "${sub.text}" (${seg(sub.startTime)} s): cae donde habla alguien del clip.`
+        : `Subtítulo "${sub.text}" (${seg(sub.startTime)} s): tenía que decir "${c.texto}".`,
+    );
+  }
+  return dif;
 }

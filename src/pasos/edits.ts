@@ -7,7 +7,7 @@ import { conectarConEdits, type Edits } from "../lib/edits.js";
 import { expandirCasa } from "../lib/entorno.js";
 import { ErrorReel } from "../lib/errores.js";
 import { ffmpeg, info } from "../lib/ffmpeg.js";
-import { armarMontaje, corregirSubtitulos, ratosConAudioDelClip, type SubtituloDeEdits } from "../lib/montaje.js";
+import { armarMontaje, corregirSubtitulos, ratosConAudioDelClip, TOLERANCIA_EDITS, type SubtituloDeEdits } from "../lib/montaje.js";
 import { validarPlan } from "../lib/plan.js";
 import { guardarJson, leerJson, segundos, type Proyecto } from "../lib/proyecto.js";
 import type { Palabra } from "../lib/transcripcion.js";
@@ -35,9 +35,15 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   const m = armarMontaje(plan);
   const titulo = path.basename(p.raiz);
 
+  const edits = await conectarConEdits();
+  const { screen } = await edits.usar<{ screen: string }>("appState");
+  if (screen !== "home") {
+    throw new ErrorReel("En Edits hay un proyecto abierto. Volvé a la pantalla de inicio de Edits y probá de nuevo.");
+  }
+
   // 1. Edits solo puede abrir archivos de la carpeta Películas: se copia ahí lo que usa el reel (los originales no se tocan)
   log("Copiando el material para Edits");
-  const carpeta = path.join(expandirCasa(EDITS.carpeta), titulo);
+  const carpeta = path.join(carpetaParaEdits(), titulo);
   mkdirSync(carpeta, { recursive: true });
   const archivos = new Map<string, string>();
   for (const clip of new Set(m.planos.filter((x) => !x.congelado).map((x) => x.clip))) {
@@ -56,20 +62,12 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   const logo = m.logos.length && p.logo ? copiar(p.logo, carpeta, `logo${path.extname(p.logo)}`) : undefined;
 
   // 2. Proyecto nuevo
-  const edits = await conectarConEdits();
-  const { screen } = await edits.usar<{ screen: string }>("appState");
-  if (screen !== "home") {
-    throw new ErrorReel("En Edits hay un proyecto abierto. Volvé a la pantalla de inicio de Edits y probá de nuevo.");
-  }
   const { id: proyecto } = await edits.usar<{ id: string }>("newProject");
   await edits.usar("setTitle", { name: titulo });
   log(`Proyecto nuevo en Edits: ${titulo}`);
 
   const alias = new Map<string, string>();
-  const importar = async (clave: string, ruta: string) => {
-    const { aliasIds } = await edits.usar<{ aliasIds: string[] }>("importToMediaPanel", { path: ruta });
-    alias.set(clave, aliasIds[0]);
-  };
+  const importar = async (clave: string, ruta: string) => alias.set(clave, await importarAlPanel(edits, ruta));
   for (const [clave, ruta] of archivos) await importar(clave, ruta);
   await importar("voz", voz);
   if (musica) await importar("musica", musica);
@@ -81,7 +79,7 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   for (const [i, plano] of m.planos.entries()) {
     const id = await agregarPlano(edits, plano.congelado ? alias.get(`congelado-${i + 1}`)! : alias.get(plano.clip)!, {
       desde: plano.congelado ? 0 : plano.desde,
-      hasta: plano.congelado ? plano.fin - plano.inicio : plano.hasta,
+      hasta: plano.congelado ? plano.fin - plano.inicio : Math.min(plano.hasta, await largoEnEdits(archivos.get(plano.clip)!)),
       en: fin,
       velocidad: plano.congelado ? 1 : plano.velocidad,
     });
@@ -101,16 +99,18 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
     const { added } = await edits.usar<Agregado>("addMediaPanelItemsToTimeline", {
       aliasIds: [alias.get("voz")],
       sourceIn: pedazo.desde,
-      sourceOut: pedazo.hasta,
+      sourceOut: Math.min(pedazo.hasta, await largoEnEdits(voz)),
       startTime: pedazo.inicio,
       ...(pistaVoz ? { trackId: pistaVoz } : {}),
     });
+    await ubicar(edits, added[0].id, added[0].start, pedazo.inicio);
     pistaVoz ??= added[0].trackId;
   }
   if (musica) {
     log("Poniendo la música");
-    const duracion = Math.min(m.duracion, (await info(musica)).duracion);
+    const duracion = Math.min(m.duracion, await largoEnEdits(musica));
     const { added } = await edits.usar<Agregado>("addMediaPanelItemsToTimeline", { aliasIds: [alias.get("musica")], sourceIn: 0, sourceOut: duracion, startTime: 0 });
+    await ubicar(edits, added[0].id, added[0].start, 0);
     await edits.usar("setVolume", { id: added[0].id, volume: MUSICA.volumen });
   }
 
@@ -118,14 +118,20 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   log("Poniendo los textos");
   const t = EDITS.textos;
   for (const texto of m.textos) {
-    const { id } = await edits.usar<{ id: string }>("addText", { text: texto.texto, atSeconds: texto.inicio, duration: texto.fin - texto.inicio });
+    const { id, startTime } = await edits.usar<{ id: string; startTime: number }>("addText", {
+      text: texto.texto,
+      atSeconds: texto.inicio,
+      duration: texto.fin - texto.inicio,
+    });
+    await ubicar(edits, id, startTime, texto.inicio);
     await edits.usar("setTextStyle", { id, size: t.tamano, bold: true, color: t.color, alignment: "center" });
     await edits.usar("setTextPosition", { id, x: t.x, y: t.y });
     await edits.usar("setTextAnimation", { id, animation: texto.animacion });
   }
   for (const bloque of m.logos) {
     const { id } = await edits.usar<{ id: string }>("addOverlay", { path: logo, startSeconds: bloque.inicio, x: 0.5, y: 0.5, scale: EDITS.logo.escala });
-    const { duration } = await edits.usar<{ duration: number }>("getElement", { id });
+    const { duration, startTime } = await edits.usar<{ duration: number; startTime: number }>("getElement", { id });
+    await ubicar(edits, id, startTime, bloque.inicio);
     // trimClip con delta positivo acorta y con delta negativo alarga
     await edits.usar("trimClip", { id, side: "end", delta: duration - (bloque.fin - bloque.inicio) });
   }
@@ -145,8 +151,34 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
 
   await edits.usar("saveProject");
   guardarJson(archivoEdits(p), { proyecto, titulo, fecha: new Date().toISOString() });
-  log(`Listo: en Edits está el proyecto "${titulo}".`);
+  log(`Proyecto guardado en Edits: "${titulo}".`);
   return { proyecto, titulo };
+}
+
+/** Edits mide los archivos en 1/600 de segundo, redondeando para abajo, y rechaza un pedazo que pase de ahí. */
+async function largoEnEdits(ruta: string) {
+  return Math.floor((await info(ruta)).duracion * 600) / 600;
+}
+
+/** A veces Edits pone lo nuevo donde estaba el cursor y no donde se le pidió (pasa con addText), y lo dice en su respuesta. */
+async function ubicar(edits: Edits, id: string, quedo: number, inicio: number) {
+  if (Math.abs(quedo - inicio) > TOLERANCIA_EDITS) await edits.usar("move", { id, toSeconds: inicio });
+}
+
+export function carpetaParaEdits() {
+  return expandirCasa(process.env.EDITS_CARPETA || EDITS.carpeta);
+}
+
+/** Recién creado el proyecto, la primera importToMediaPanel falla con "no media panel" y no importa nada. */
+async function importarAlPanel(edits: Edits, ruta: string) {
+  for (let intento = 1; ; intento++) {
+    try {
+      const { aliasIds } = await edits.usar<{ aliasIds: string[] }>("importToMediaPanel", { path: ruta });
+      return aliasIds[0];
+    } catch (e) {
+      if (intento === 3 || !String(e).includes("no media panel")) throw e;
+    }
+  }
 }
 
 async function agregarPlano(edits: Edits, aliasId: string, o: { desde: number; hasta: number; en: number; velocidad: number }) {

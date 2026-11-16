@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { armarMontaje, corregirSubtitulos, ratosConAudioDelClip } from "../../src/lib/montaje.js";
+import { armarMontaje, corregirSubtitulos, diferenciasConEdits, ratosConAudioDelClip, type ElementoDeEdits, type Montaje } from "../../src/lib/montaje.js";
 import type { Plan } from "../../src/lib/plan.js";
 import type { Palabra } from "../../src/lib/transcripcion.js";
 
@@ -63,7 +63,7 @@ test("respeta un plan sin subtítulos", () => {
 
 const palabra = (text: string, start: number, end: number): Palabra => ({ text, start, end, type: "word" });
 
-test("corrige los subtítulos de Edits con la transcripción y borra lo que dice alguien del clip", () => {
+test("corrige los subtítulos de Edits con la transcripción, sin el punto final que Edits saca, y borra lo que dice alguien del clip", () => {
   // Sobre la voz limpia: "En Martínez abrió" (0-2), "podés comer rico" (2-4)
   const palabras = [
     palabra("En", 0.1, 0.4),
@@ -84,7 +84,6 @@ test("corrige los subtítulos de Edits con la transcripción y borra lo que dice
   assert.deepEqual(corregirSubtitulos(subtitulos, palabras, plan.tramos, ratosConAudioDelClip(m)), [
     { id: "b", accion: "borrar" },
     { id: "c", accion: "cambiar", texto: "podés comer" },
-    { id: "d", accion: "cambiar", texto: "rico." },
   ]);
 });
 
@@ -98,5 +97,99 @@ test("una palabra que cae entre dos subtítulos va al más cercano", () => {
   assert.deepEqual(corregirSubtitulos(subtitulos, palabras, tramos, []), [
     { id: "a", accion: "cambiar", texto: "hola" },
     { id: "b", accion: "cambiar", texto: "che" },
+  ]);
+});
+
+/** Lo que leería `elements` si Edits armó todo bien, con cada tiempo corrido como el redondeo más grande que se vio en Edits. */
+function lineaComoEnEdits(m: Montaje): ElementoDeEdits[] {
+  const redondeado = (n: number) => n + 0.013;
+  return [
+    ...m.planos.map((p, i) => ({
+      id: `plano-${i}`,
+      trackId: "principal",
+      trackType: "video",
+      content: p.congelado ? "photo" : "video",
+      startTime: redondeado(p.inicio),
+      endTime: redondeado(p.fin),
+      sourceInPoint: p.congelado ? 0 : p.desde,
+      speed: p.congelado ? 1 : p.velocidad,
+      volume: p.congelado || p.audioDelClip ? 1 : 0,
+    })),
+    ...m.voz.map((v, i) => ({
+      id: `voz-${i}`,
+      trackId: "voz",
+      trackType: "audio",
+      content: "music",
+      startTime: redondeado(v.inicio),
+      endTime: redondeado(v.inicio + v.hasta - v.desde),
+      sourceInPoint: v.desde,
+      sourceOutPoint: v.hasta,
+    })),
+    ...m.textos.map((t, i) => ({
+      id: `texto-${i}`,
+      trackId: "textos",
+      trackType: "overlay",
+      content: "text",
+      startTime: redondeado(t.inicio),
+      endTime: redondeado(t.fin),
+      text: t.texto,
+      animation: t.animacion,
+    })),
+    ...m.logos.map((l, i) => ({ id: `logo-${i}`, trackId: "logo", trackType: "overlay", content: "photo", startTime: redondeado(l.inicio), endTime: redondeado(l.fin) })),
+  ];
+}
+
+const palabrasDelPlan = [
+  palabra("En", 0.1, 0.4),
+  palabra("Martínez", 0.5, 1.2),
+  palabra("abrió", 1.3, 1.9),
+  palabra("podés", 2.1, 2.6),
+  palabra("comer", 2.7, 3.2),
+  palabra("rico.", 3.3, 3.9),
+];
+const subtitulosBien = [
+  { id: "a", text: "En Martínez abrió", startTime: 1.1, endTime: 2.9 },
+  { id: "c", text: "podés comer", startTime: 4.6, endTime: 5.7 },
+  { id: "d", text: "rico", startTime: 5.8, endTime: 6.4 },
+];
+
+test("una línea de tiempo armada como pide el plan coincide, aunque Edits redondee a sus cuadros", () => {
+  const m = armarMontaje(plan);
+  const captions = subtitulosBien.map((c) => ({ ...c, trackId: "subtitulos", trackType: "overlay", content: "text" }));
+  assert.deepEqual(diferenciasConEdits(m, [...lineaComoEnEdits(m), ...captions], subtitulosBien, palabrasDelPlan, plan.tramos), []);
+});
+
+test("encuentra un texto que Edits dejó donde estaba el cursor y no donde se pidió", () => {
+  const m = armarMontaje(plan);
+  const elementos = lineaComoEnEdits(m).map((e) => (e.text === "2 X $10.000" ? { ...e, startTime: 3, endTime: 6 } : e));
+  assert.deepEqual(diferenciasConEdits(m, elementos, subtitulosBien, palabrasDelPlan, plan.tramos), [
+    'Texto "2 X $10.000": en Edits va de 3.00 a 6.00 s y en el plan de 4.50 a 7.50 s.',
+  ]);
+});
+
+test("encuentra un plano que quedó fuera de la pista principal y un pedazo de voz que falta", () => {
+  const m = armarMontaje(plan);
+  const elementos = lineaComoEnEdits(m)
+    .map((e) => (e.id === "plano-6" ? { ...e, trackId: "otra", trackType: "overlay" } : e))
+    .filter((e) => e.id !== "voz-1");
+  assert.deepEqual(diferenciasConEdits(m, elementos, subtitulosBien, palabrasDelPlan, plan.tramos), [
+    "En la pista principal hay 6 planos y el plan tiene 7.",
+    "Voz 2: no está el pedazo de 2.00 a 7.00 s de la voz en el segundo 4.50.",
+  ]);
+});
+
+test("encuentra un plano que suena cuando tenía que ir callado, y subtítulos sin corregir", () => {
+  const m = armarMontaje(plan);
+  const elementos = lineaComoEnEdits(m).map((e) => (e.id === "plano-1" ? { ...e, volume: 1 } : e));
+  const subtitulos = [
+    subtitulosBien[0],
+    { id: "b", text: "la concha de la", startTime: 3.4, endTime: 4.2 },
+    { id: "c", text: "puedes comer", startTime: 4.6, endTime: 5.7 },
+    subtitulosBien[2],
+  ];
+  assert.deepEqual(diferenciasConEdits(m, elementos, subtitulos, palabrasDelPlan, plan.tramos), [
+    "Plano 2: tenía que ir sin el audio del clip y suena.",
+    'Subtítulo "la concha de la" (3.40 s): cae donde habla alguien del clip.',
+    'Subtítulo "puedes comer" (4.60 s): tenía que decir "podés comer".',
   ]);
 });
