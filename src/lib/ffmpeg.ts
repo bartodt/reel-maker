@@ -107,6 +107,31 @@ export async function audioComoNumeros(archivo: string): Promise<Float32Array> {
   return new Float32Array(alineado.buffer);
 }
 
+/** Los segundos donde la imagen cambia de golpe: los cortes de un video ya editado. */
+export async function detectarCortes(archivo: string, umbral: number): Promise<number[]> {
+  const salida = await ffmpeg([
+    "-i", archivo,
+    "-an",
+    "-vf", `scdet=threshold=${umbral},metadata=mode=print:key=lavfi.scd.time:file=pipe\\\\:1`,
+    "-f", "null", "-",
+  ]);
+  return [...salida.toString().matchAll(/^lavfi\.scd\.time=([\d.]+)$/gm)].map((m) => Number(m[1]));
+}
+
+/** Cuadros chicos en gris, `porSegundo` por segundo desde el segundo 0: un byte por píxel, ancho × alto por cuadro. */
+export async function cuadrosEnGris(archivo: string, porSegundo: number, ancho: number, alto: number): Promise<Uint8Array[]> {
+  const crudo = await ffmpeg([
+    "-i", archivo,
+    "-an",
+    "-vf", `fps=${porSegundo},scale=${ancho}:${alto}:flags=area,format=gray`,
+    "-f", "rawvideo", "pipe:1",
+  ]);
+  const tamano = ancho * alto;
+  const cuadros: Uint8Array[] = [];
+  for (let i = 0; i + tamano <= crudo.length; i += tamano) cuadros.push(crudo.subarray(i, i + tamano));
+  return cuadros;
+}
+
 /** Escapa una ruta para usarla dentro de un filtro de ffmpeg (por ejemplo ass=...). */
 export function rutaParaFiltro(ruta: string): string {
   return ruta.replace(/\\/g, "/").replace(/:/g, "\\:").replace(/'/g, "\\'");
