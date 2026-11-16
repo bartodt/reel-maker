@@ -50,3 +50,23 @@ Tarda unos dos minutos con 52 clips en 4K: casi todo es leer los videos.
 Para Casa Giro es igual, con la carpeta `~/reels/hola-luli` y `referencias/casa-giro/plan-real.json`.
 
 Como hay dos reels de referencia con crudos, los números sirven para ver si un cambio ayuda, no como nota final.
+
+## Cómo medir contra todas las referencias
+
+`referencias.json` lista las referencias que tienen crudos: el nombre, la carpeta del reel con el material y su `plan-real.json`.
+
+1. Armá una carpeta para la corrida con una carpeta por referencia, con el mismo nombre que en `referencias.json`. En cada una va el plan a medir, en `edit/plan.json`:
+   ```
+   corrida/
+     pancho-y-coca/edit/plan.json
+     casa-giro/edit/plan.json
+   ```
+   Cada una puede ser la carpeta de una prueba (pasos 1 a 3 de arriba). Para ver que anda, copiá cada `plan-real.json` como `edit/plan.json`: da 100% en todo.
+2. `npm run medir -- <carpeta de la corrida>`.
+
+Muestra una fila por referencia y una de promedio, y guarda lo mismo en `medicion.json`, dentro de la corrida (de 0 a 1). Una referencia sin plan sale "sin plan" y no cuenta en el promedio. Las columnas son:
+
+- Mismo contenido, mismo clip y mismo momento: las tres de `comparar`, sobre el tiempo de voz.
+- Cortes: de todos los cortes, los de la referencia y los del plan juntos, qué parte forma pareja con uno del otro lado a menos de 0,3 s. Cada corte entra en una sola pareja, así que baja si faltan cortes y también si sobran. Solo cuenta cuando cambia la toma: partir una toma para cambiarle la velocidad o el texto no es un corte. Así Casa Giro tiene 17 cortes, los mismos que se ven en el publicado, y Pancho y Coca 14.
+
+`npm run comparar` también muestra la línea de cortes, con cuántas parejas hay y cuántos cortes tiene cada uno.

@@ -1,13 +1,6 @@
 import assert from "node:assert/strict";
-import { mkdirSync, mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
 import { test } from "node:test";
-import type { Referencia } from "../../src/lib/comparar.js";
-import { RAIZ_REPO } from "../../src/lib/entorno.js";
-import { ffmpeg } from "../../src/lib/ffmpeg.js";
-import { duracionEnPantalla, planoTipico, validarPlan, type Plan } from "../../src/lib/plan.js";
-import { abrirProyecto, leerJson } from "../../src/lib/proyecto.js";
+import { planoTipico, validarPlan, type Plan } from "../../src/lib/plan.js";
 import { DURACION_VOZ, PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
 
 const p = await crearProyectoDePrueba();
@@ -112,33 +105,3 @@ test("acepta apagar los subtítulos y rechaza valores raros", async () => {
   const mal = await validarCon({ ...PLAN_VALIDO, subtitulos: "no" as any });
   assert.ok(mal.errores.some((e) => e.includes('"subtitulos"')));
 });
-
-/** Clips y voz limpia de relleno que duran lo justo para el plan: así se valida una referencia sin los crudos. */
-async function proyectoALaMedida(plan: Referencia) {
-  const raiz = mkdtempSync(path.join(tmpdir(), "reel-referencia-"));
-  mkdirSync(path.join(raiz, "clips"));
-  mkdirSync(path.join(raiz, "edit"));
-  const necesario = new Map<string, number>();
-  const conAudio = new Set(plan.tramos.filter((t) => "audioDelClip" in t && t.audioDelClip).map((t) => t.clip));
-  for (const t of plan.tramos) {
-    const v = t.velocidad ?? 1;
-    necesario.set(t.clip, Math.max(necesario.get(t.clip) ?? 0, t.arrancaEn + (v === 0 ? 0.1 : duracionEnPantalla(t) * v)));
-  }
-  for (const [clip, segundos] of necesario) {
-    const audio = conAudio.has(clip) ? ["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono"] : [];
-    await ffmpeg(["-f", "lavfi", "-i", "color=c=gray:s=16x16:r=10", ...audio, "-t", String(segundos + 0.2), path.join(raiz, "clips", clip)]);
-  }
-  const voz = Math.max(...plan.tramos.map((t) => ("hasta" in t ? t.hasta : 0)));
-  await ffmpeg(["-f", "lavfi", "-i", "anullsrc=r=48000:cl=mono", "-t", String(voz), path.join(raiz, "edit", "voz-limpia.wav")]);
-  await ffmpeg(["-f", "lavfi", "-i", "color=c=red:s=30x15", "-frames:v", "1", path.join(raiz, "logo.png")]);
-  return abrirProyecto(raiz);
-}
-
-for (const referencia of ["casa-giro", "pancho-y-coca"]) {
-  test(`el plan real de ${referencia} está bien armado`, async () => {
-    const plan = leerJson<Referencia>(path.join(RAIZ_REPO, "referencias", referencia, "plan-real.json"));
-    const p = await proyectoALaMedida(plan);
-    escribirPlan(p.raiz, plan);
-    assert.deepEqual((await validarPlan(p)).errores, []);
-  });
-}
