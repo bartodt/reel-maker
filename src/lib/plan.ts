@@ -67,20 +67,22 @@ export function planoTipico(tramos: Tramo[]): number {
 const TOLERANCIA = 0.05;
 const VELOCIDAD_MAXIMA = 8;
 
-export async function validarPlan(p: Proyecto) {
+interface TramoArmado {
+  n: string;
+  t: Tramo;
+  dur: number;
+  velocidad: number;
+}
+
+/** Lo que se revisa sin el material: que el plan y cada tramo tengan lo que tienen que tener. */
+export function revisarForma(datos: unknown) {
   const errores: string[] = [];
   const avisos: string[] = [];
-  const vacio = { ok: false, errores, avisos, plan: undefined as Plan | undefined, duracionVoz: 0, duracionTotal: 0 };
-
-  if (!existsSync(p.vozLimpia)) errores.push("Falta edit/voz-limpia.wav (corré el paso 1).");
-  if (!existsSync(p.plan)) errores.push("Falta edit/plan.json.");
-  if (errores.length) return vacio;
-
-  const duracionVoz = (await info(p.vozLimpia)).duracion;
-  const plan = leerJson<Plan>(p.plan);
-  if (!Array.isArray(plan.tramos) || plan.tramos.length === 0) {
+  const armados: TramoArmado[] = [];
+  const plan = datos as Partial<Plan> | null;
+  if (!Array.isArray(plan?.tramos) || plan.tramos.length === 0) {
     errores.push("El plan no tiene tramos.");
-    return { ...vacio, plan, duracionVoz };
+    return { errores, avisos, armados, plan: undefined, finVoz: undefined, duracionSinVoz: 0 };
   }
   if (plan.ritmo !== undefined && !(plan.ritmo in RITMO)) {
     errores.push(`"ritmo" tiene que ser "tranquilo", "normal" o "rapido".`);
@@ -89,14 +91,16 @@ export async function validarPlan(p: Proyecto) {
     errores.push(`"subtitulos" tiene que ser true o false.`);
   }
 
-  const clips = new Map<string, InfoMedio>();
   let esperado = 0;
   let tramosConVoz = 0;
   let duracionSinVoz = 0;
-  let faltaLogo = false;
 
   for (const [i, t] of plan.tramos.entries()) {
     const n = `Tramo ${i + 1}`;
+    if (typeof t !== "object" || t === null || Array.isArray(t)) {
+      errores.push(`${n}: no es un tramo.`);
+      continue;
+    }
     const crudo = t as Partial<TramoConVoz & TramoSinVoz>;
     const vaConVoz = crudo.desde !== undefined || crudo.hasta !== undefined;
     const vaSinVoz = crudo.duracion !== undefined;
@@ -146,13 +150,42 @@ export async function validarPlan(p: Proyecto) {
       errores.push(`${n}: "texto" no puede estar vacío.`);
     }
     if (t.logo !== undefined && typeof t.logo !== "boolean") errores.push(`${n}: "logo" tiene que ser true o false.`);
-    if (t.logo && !p.logo) faltaLogo = true;
     if (crudo.audioDelClip !== undefined) {
       if (!vaSinVoz) errores.push(`${n}: "audioDelClip" solo va en tramos sin voz (los que tienen "duracion").`);
       if (typeof crudo.audioDelClip !== "boolean") errores.push(`${n}: "audioDelClip" tiene que ser true o false.`);
       if (crudo.audioDelClip && velocidad !== 1) errores.push(`${n}: con "audioDelClip" la velocidad tiene que ser 1.`);
     }
+    if (typeof t.clip !== "string" || !t.clip) {
+      errores.push(`${n}: falta "clip", el nombre del video.`);
+      continue;
+    }
+    if (typeof t.arrancaEn !== "number" || t.arrancaEn < 0) {
+      errores.push(`${n}: "arrancaEn" tiene que ser un número, de 0 en adelante.`);
+      continue;
+    }
+    armados.push({ n, t, dur, velocidad });
+  }
 
+  if (tramosConVoz === 0) errores.push(`El plan no tiene ningún tramo con voz (con "desde" y "hasta").`);
+  return { errores, avisos, armados, plan: plan as Plan, finVoz: tramosConVoz ? esperado : undefined, duracionSinVoz };
+}
+
+export async function validarPlan(p: Proyecto) {
+  const vacio = { ok: false, avisos: [] as string[], plan: undefined as Plan | undefined, duracionVoz: 0, duracionTotal: 0 };
+  const faltan: string[] = [];
+  if (!existsSync(p.vozLimpia)) faltan.push("Falta edit/voz-limpia.wav (corré el paso 1).");
+  if (!existsSync(p.plan)) faltan.push("Falta edit/plan.json.");
+  if (faltan.length) return { ...vacio, errores: faltan };
+
+  const duracionVoz = (await info(p.vozLimpia)).duracion;
+  const crudo = leerJson<Plan>(p.plan);
+  const { errores, avisos, armados, plan, finVoz, duracionSinVoz } = revisarForma(crudo);
+  if (!plan) return { ...vacio, errores, plan: crudo, duracionVoz };
+
+  const clips = new Map<string, InfoMedio>();
+  let faltaLogo = false;
+  for (const { n, t, dur, velocidad } of armados) {
+    if (t.logo && !p.logo) faltaLogo = true;
     const ruta = path.join(p.carpetaClips, t.clip);
     if (!existsSync(ruta)) {
       errores.push(`${n}: no existe el clip "${t.clip}".`);
@@ -160,7 +193,6 @@ export async function validarPlan(p: Proyecto) {
     }
     if (!clips.has(t.clip)) clips.set(t.clip, await info(ruta));
     const clip = clips.get(t.clip)!;
-    if (t.arrancaEn < 0) errores.push(`${n}: "arrancaEn" no puede ser negativo.`);
     if (velocidad === 0) {
       if (t.arrancaEn >= clip.duracion) {
         errores.push(`${n}: la imagen congelada sale del segundo ${segundos(t.arrancaEn)}, pero "${t.clip}" dura ${segundos(clip.duracion)} s.`);
@@ -172,19 +204,17 @@ export async function validarPlan(p: Proyecto) {
           `pero el clip dura ${segundos(clip.duracion)} s.`,
       );
     }
-    if (crudo.audioDelClip && !clip.tieneAudio) errores.push(`${n}: "${t.clip}" no tiene audio.`);
+    if ((t as TramoSinVoz).audioDelClip && !clip.tieneAudio) errores.push(`${n}: "${t.clip}" no tiene audio.`);
   }
 
   if (faltaLogo) errores.push(`Hay tramos con "logo" pero no encontré el logo. Poné logo.png en la carpeta del reel o en recursos/ del repo.`);
 
-  if (tramosConVoz === 0) {
-    errores.push(`El plan no tiene ningún tramo con voz (con "desde" y "hasta").`);
-  } else {
-    if (esperado < duracionVoz - TOLERANCIA) {
-      errores.push(`El último tramo con voz termina en ${segundos(esperado)} s pero la voz dura ${segundos(duracionVoz)} s. Falta cubrir el final.`);
+  if (finVoz !== undefined) {
+    if (finVoz < duracionVoz - TOLERANCIA) {
+      errores.push(`El último tramo con voz termina en ${segundos(finVoz)} s pero la voz dura ${segundos(duracionVoz)} s. Falta cubrir el final.`);
     }
-    if (esperado > duracionVoz + 1) {
-      avisos.push(`El último tramo con voz termina ${segundos(esperado - duracionVoz)} s después de la voz. Ese pedazo va a quedar sin narración.`);
+    if (finVoz > duracionVoz + 1) {
+      avisos.push(`El último tramo con voz termina ${segundos(finVoz - duracionVoz)} s después de la voz. Ese pedazo va a quedar sin narración.`);
     }
   }
 

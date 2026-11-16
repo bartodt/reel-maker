@@ -118,14 +118,14 @@ export function cortesEnLaVoz(tramos: Tramo[]): number[] {
 
 function sigueLaToma(a: Tramo, b: Tramo): boolean {
   const termina = a.arrancaEn + duracionEnPantalla(a) * (a.velocidad ?? 1);
-  return a.clip === b.clip && Math.abs(b.arrancaEn - termina) < MISMA_TOMA;
+  return a.clip === b.clip && aMenosDe(b.arrancaEn, termina, MISMA_TOMA);
 }
 
 /** a y b en orden. Recorrerlas juntas y emparejar el primero que puede da la mayor cantidad de parejas. */
 function parejas(a: number[], b: number[]): number {
   let n = 0;
   for (let i = 0, j = 0; i < a.length && j < b.length; ) {
-    if (Math.abs(a[i] - b[j]) < CORTE_CERCA) {
+    if (aMenosDe(a[i], b[j], CORTE_CERCA)) {
       n++;
       i++;
       j++;
@@ -133,6 +133,11 @@ function parejas(a: number[], b: number[]): number {
     else j++;
   }
   return n;
+}
+
+/** En milésimas: restando segundos, 5,3 − 5 da 0,2999… y 1,3 − 1 da 0,3000…1, y el borde quedaba distinto en cada lugar. */
+function aMenosDe(a: number, b: number, limite: number): boolean {
+  return Math.abs(Math.round(a * 1000) - Math.round(b * 1000)) < Math.round(limite * 1000);
 }
 
 /** "al principio: 1.0 s de IMG_0672", "en el segundo 2.7 de la voz: 1.8 s de IMG_0638 con su audio", ... */

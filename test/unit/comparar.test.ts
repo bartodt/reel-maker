@@ -107,6 +107,19 @@ test("cada corte de la referencia empareja con uno solo del plan, así que los q
   assert.equal(c.cortes, (2 * 2) / (3 + 2));
 });
 
+test("dos cortes a 0,3 s justos no forman pareja, en cualquier segundo de la voz", () => {
+  const unCorte = (s: number): Plan => ({
+    tramos: [
+      { desde: 0, hasta: s, clip: "a.mov", arrancaEn: 0 },
+      { desde: s, hasta: 10, clip: "b.mov", arrancaEn: 0 },
+    ],
+  });
+  for (const s of [1, 5, 6.288]) {
+    assert.equal(comparar(unCorte(s + 0.3), unCorte(s), 0.1).cortes, 0, `${s} y ${s + 0.3}`);
+    assert.equal(comparar(unCorte(s + 0.299), unCorte(s), 0.1).cortes, 1, `${s} y ${s + 0.299}`);
+  }
+});
+
 test("avisa si alguno no tiene tramos con voz", () => {
   assert.throws(() => comparar({ tramos: [{ duracion: 1, clip: "a.mov", arrancaEn: 0 }] }, referencia), /al menos un tramo con voz/);
 });
