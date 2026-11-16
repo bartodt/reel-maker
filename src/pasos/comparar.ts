@@ -24,6 +24,10 @@ export async function comparar(p: Proyecto, archivoReferencia: string | undefine
   log(`  lo mismo que la referencia (o una alternativa): ${pct(c.mismoContenido)}`);
   log(`  exactamente el mismo clip:                      ${pct(c.mismoClip)}`);
   log(`  el mismo clip y el mismo momento del clip:      ${pct(c.mismoMomento)}`);
+  log(
+    `  cortes en el mismo lugar (a menos de 0,3 s):    ${pct(c.cortes)}  ` +
+      `(coinciden ${c.cortesQueCoinciden}: la referencia tiene ${c.totalCortes.referencia} y el plan ${c.totalCortes.plan})`,
+  );
   log("");
   log(fila("", "Plan", "Referencia"));
   log(fila("Tramos con voz", String(c.planos.plan), String(c.planos.referencia)));
