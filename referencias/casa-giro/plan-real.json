@@ -1,0 +1,24 @@
+{
+  "ritmo": "tranquilo",
+  "tramos": [
+    { "desde": 0, "hasta": 2.153, "clip": "IMG_6427.mov", "arrancaEn": 0.29, "velocidad": 1.1, "texto": "CASA GIRO", "nota": "Ella a cámara caminando por la vereda: Besis, hoy vine a conocer Casa Giro" },
+    { "desde": 2.153, "hasta": 4.436, "clip": "IMG_6385.mov", "arrancaEn": 5.077, "texto": "CASA GIRO", "nota": "Abre la puerta del balcón: sobre la calle General Pirán en Martínez" },
+    { "desde": 4.436, "hasta": 8.686, "clip": "IMG_6385.mov", "arrancaEn": 7.36, "velocidad": 2, "texto": "UN ESPACIO PARA TUS\nIDEAS", "nota": "La misma toma sigue al doble de rápido mostrando la calle: a una cuadra de la avenida Santa Fe..." },
+    { "desde": 8.686, "hasta": 14.436, "clip": "IMG_6379.mov", "arrancaEn": 0.021, "velocidad": 1.5, "texto": "UN ESPACIO PARA TUS\nIDEAS", "nota": "Recorrido por los ambientes: ¿Tenés una idea dando vueltas hace tiempo?..." },
+    { "desde": 14.436, "hasta": 16.336, "clip": "IMG_6381.mov", "arrancaEn": 1.483, "texto": "CONSULTORIOS Y\nOFICINAS", "nota": "Consultorio con biblioteca: podés atender a tus pacientes, trabajar" },
+    { "desde": 16.336, "hasta": 17.353, "clip": "IMG_6388.mov", "arrancaEn": 1.858, "alternativas": ["IMG_6387.mov"], "texto": "CONSULTORIOS Y\nOFICINAS", "nota": "Oficina con escritorio de vidrio: organizar reuniones" },
+    { "desde": 17.353, "hasta": 18.786, "clip": "IMG_6376.mov", "arrancaEn": 0, "alternativas": ["IMG_6377.mov"], "texto": "CONSULTORIOS Y\nOFICINAS", "nota": "La mesa larga del salón: dar talleres y capacitaciones" },
+    { "desde": 18.786, "hasta": 20.203, "clip": "IMG_6377.mov", "arrancaEn": 2.258, "alternativas": ["IMG_6376.mov"], "texto": "TALLERES Y\nCAPACITACIONES\n14 personas", "nota": "El salón con la tele: grupos de hasta catorce personas" },
+    { "desde": 20.203, "hasta": 21.603, "clip": "IMG_6400.mov", "arrancaEn": 0.017, "velocidad": 1.5, "alternativas": ["IMG_6401.mov"], "texto": "TALLERES Y\nCAPACITACIONES\n14 personas", "nota": "La cocina: además cuenta con cocina" },
+    { "desde": 21.603, "hasta": 22.403, "clip": "IMG_6406.mov", "arrancaEn": 0, "texto": "TALLERES Y\nCAPACITACIONES\n14 personas", "nota": "Hornallas y pileta de cerca: vajilla" },
+    { "desde": 22.403, "hasta": 24.286, "clip": "IMG_6395.mov", "arrancaEn": 0.005, "velocidad": 1.8, "nota": "La tele: tele para presentaciones" },
+    { "desde": 24.286, "hasta": 28.936, "clip": "IMG_6391.mov", "arrancaEn": 0.017, "velocidad": 2, "alternativas": ["IMG_6392.mov", "IMG_6393.mov"], "texto": "DESDE $15.000 LA\nHORA", "nota": "Estación de café: café, té y mate sin costo adicional" },
+    { "desde": 28.936, "hasta": 31.353, "clip": "IMG_6387.mov", "arrancaEn": 5.158, "alternativas": ["IMG_6388.mov"], "texto": "DESDE $15.000 LA\nHORA", "nota": "Oficina con escritorio de vidrio: podés reservar por una hora o por módulos" },
+    { "desde": 31.353, "hasta": 32.753, "clip": "IMG_6383.mov", "arrancaEn": 0, "nota": "Consultorio con escritorio blanco: según lo que necesites" },
+    { "desde": 32.753, "hasta": 37.553, "clip": "IMG_6401.mov", "arrancaEn": 2.04, "velocidad": 2.9, "nota": "Sale por la puerta de la cocina al patio interno" },
+    { "desde": 37.553, "hasta": 38.869, "clip": "IMG_6408.mov", "arrancaEn": 3.208, "nota": "Ella con dos personas en el salón: si tenés una idea en mente" },
+    { "desde": 38.869, "hasta": 40.036, "clip": "IMG_6411.mov", "arrancaEn": 0.25, "nota": "Stickers de hacé que pase: animate a hacer que pase" },
+    { "desde": 40.036, "hasta": 43.269, "clip": "IMG_6414.mov", "arrancaEn": 0.017, "alternativas": ["IMG_6416.mov"], "texto": "General Pirán 120 1A", "nota": "El frente del edificio, una chica saluda en la puerta: consultá disponibilidad" },
+    { "desde": 43.269, "hasta": 43.888, "clip": "IMG_6421.mov", "arrancaEn": 2.9, "logo": true, "nota": "Cierre: ella saluda en la vereda con el logo" }
+  ]
+}

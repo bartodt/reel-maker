@@ -6,13 +6,14 @@ import { comparar } from "./pasos/comparar.js";
 import { mandarAEdits } from "./pasos/edits.js";
 import { inventario } from "./pasos/inventario.js";
 import { limpiar } from "./pasos/limpiar.js";
+import { reconstruir } from "./pasos/reconstruir.js";
 import { render } from "./pasos/render.js";
 import { transcribir } from "./pasos/transcribir.js";
 import { validar } from "./pasos/validar.js";
 
 const PASOS = { limpiar, transcribir, inventario, validar, render, edits: mandarAEdits } as const;
-type NombrePaso = keyof typeof PASOS;
-const TODOS = [...Object.keys(PASOS), "comparar"];
+const CON_ARCHIVO = { comparar, reconstruir } as const;
+const TODOS = [...Object.keys(PASOS), ...Object.keys(CON_ARCHIVO)];
 
 const AYUDA = `Uso: npm run reel -- <paso> <carpeta>
 
@@ -27,6 +28,8 @@ Pasos (en orden):
 Para probar la herramienta:
   comparar     compara edit/plan.json con un plan de referencia
                npm run comparar -- <carpeta> <referencia.json>
+  reconstruir  busca cada plano de un reel publicado en los clips, para armar una referencia
+               npm run reconstruir -- <carpeta> <publicado.mp4>
 
 Atajos: npm run limpiar -- <carpeta>, npm run render -- <carpeta>, etc.`;
 
@@ -41,8 +44,8 @@ if (!nombre || !TODOS.includes(nombre)) {
 
 try {
   const proyecto = abrirProyecto(carpeta);
-  if (nombre === "comparar") await comparar(proyecto, extra);
-  else await PASOS[nombre as NombrePaso](proyecto);
+  if (nombre in CON_ARCHIVO) await CON_ARCHIVO[nombre as keyof typeof CON_ARCHIVO](proyecto, extra);
+  else await PASOS[nombre as keyof typeof PASOS](proyecto);
 } catch (e) {
   if (e instanceof ErrorReel) {
     console.error(e.message);
