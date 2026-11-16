@@ -145,7 +145,6 @@ export interface ClipDisponible {
   duracion: number;
 }
 
-/** Un plan de control para saber cuánto da `comparar` sin elegir nada: un clip al azar entre cada par de cortes. */
 export function planAlAzar(duracionVoz: number, cortes: number[], clips: ClipDisponible[], azar: () => number): Plan {
   const bordes = [0, ...cortes.filter((c) => c > 0 && c < duracionVoz).sort((a, b) => a - b), duracionVoz];
   const tramos = bordes.slice(1).map((hasta, i) => {
@@ -156,8 +155,7 @@ export function planAlAzar(duracionVoz: number, cortes: number[], clips: ClipDis
   return { tramos: tramos.filter((t) => t.hasta > t.desde) };
 }
 
-/** Números al azar que se repiten con la misma semilla (mulberry32). */
-export function azarConSemilla(semilla: number): () => number {
+export function mulberry32(semilla: number): () => number {
   let a = semilla >>> 0;
   return () => {
     a = (a + 0x6d2b79f5) >>> 0;

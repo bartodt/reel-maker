@@ -7,7 +7,6 @@ export interface FichaReferencia {
   nombre: string;
   carpeta: string;
   archivoPlan: string;
-  /** El logo y el guion que recibe una corrida a ciegas, si la carpeta del reel no los tiene */
   logo?: string;
   guion?: string;
 }

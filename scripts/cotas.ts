@@ -1,7 +1,7 @@
-// Cotas de la medida: cuánto da `medir` con planes que no eligen nada. Resultados en referencias/linea-de-base.md.
+// Cotas de la medida. Cómo y cuándo usarla: referencias/README.md, "Cómo correr una prueba".
 import { mkdirSync, readdirSync, rmSync } from "node:fs";
 import path from "node:path";
-import { azarConSemilla, cortesEnLaVoz, planAlAzar, type ClipDisponible, type Referencia } from "../src/lib/comparar.js";
+import { mulberry32, cortesEnLaVoz, planAlAzar, type ClipDisponible, type Referencia } from "../src/lib/comparar.js";
 import { expandirCasa } from "../src/lib/entorno.js";
 import { ErrorReel } from "../src/lib/errores.js";
 import { info } from "../src/lib/ffmpeg.js";
@@ -33,11 +33,7 @@ async function leerMaterial(ficha: FichaReferencia): Promise<Material> {
   return { ficha, referencia, clips, duracionVoz };
 }
 
-/**
- * Pancho y Coca sobre Casa Giro: los mismos tiempos estirados a la voz de Casa Giro, y cada clip cambiado por el que
- * ocupa el mismo lugar en el orden de filmación de Casa Giro. No mira la edición de Casa Giro.
- */
-function copiar(origen: Material, destino: Material): Plan {
+function copiarPorOrdenDeFilmacion(origen: Material, destino: Material): Plan {
   const escala = destino.duracionVoz / origen.duracionVoz;
   const lugar = (archivo: string) => origen.clips.findIndex((c) => c.archivo === archivo) / Math.max(1, origen.clips.length - 1);
   const tramos = origen.referencia.tramos.map((t): Tramo => {
@@ -60,7 +56,6 @@ function cadaTanto(m: Material) {
   return Array.from({ length: Math.floor(m.duracionVoz / CADA) }, (_, i) => (i + 1) * CADA);
 }
 
-/** Cada corrida: un nombre y, por referencia, el plan a medir (o ninguno). */
 function armarCorridas(materiales: Material[]): Record<string, Record<string, Plan>> {
   const corridas: Record<string, Record<string, Plan>> = {};
   const porReferencia = (nombre: string, plan: (m: Material, i: number) => Plan | undefined) => {
@@ -72,9 +67,9 @@ function armarCorridas(materiales: Material[]): Record<string, Record<string, Pl
   };
   porReferencia("techo", (m) => m.referencia);
   for (let s = 1; s <= SEMILLAS; s++) {
-    porReferencia(`azar-${s}`, (m, i) => { const azar = azarConSemilla(s * 100 + i); return planAlAzar(m.duracionVoz, cortesAlAzar(m, azar), m.clips, azar); });
-    porReferencia(`azar-con-sus-cortes-${s}`, (m, i) => planAlAzar(m.duracionVoz, cortesEnLaVoz(m.referencia.tramos), m.clips, azarConSemilla(s * 100 + i)));
-    porReferencia(`cada-${CADA}-s-${s}`, (m, i) => planAlAzar(m.duracionVoz, cadaTanto(m), m.clips, azarConSemilla(s * 100 + i)));
+    porReferencia(`azar-${s}`, (m, i) => { const azar = mulberry32(s * 100 + i); return planAlAzar(m.duracionVoz, cortesAlAzar(m, azar), m.clips, azar); });
+    porReferencia(`azar-con-sus-cortes-${s}`, (m, i) => planAlAzar(m.duracionVoz, cortesEnLaVoz(m.referencia.tramos), m.clips, mulberry32(s * 100 + i)));
+    porReferencia(`cada-${CADA}-s-${s}`, (m, i) => planAlAzar(m.duracionVoz, cadaTanto(m), m.clips, mulberry32(s * 100 + i)));
   }
   const masClips = Math.max(...materiales.map((m) => m.clips.length));
   for (let k = 0; k < masClips; k++) {
@@ -82,7 +77,7 @@ function armarCorridas(materiales: Material[]): Record<string, Record<string, Pl
   }
   const pyc = materiales.find((m) => m.ficha.nombre === "pancho-y-coca");
   const cg = materiales.find((m) => m.ficha.nombre === "casa-giro");
-  if (pyc && cg) corridas["copia-pancho-y-coca"] = { "casa-giro": copiar(pyc, cg) };
+  if (pyc && cg) corridas["copia-pancho-y-coca"] = { "casa-giro": copiarPorOrdenDeFilmacion(pyc, cg) };
   return corridas;
 }
 

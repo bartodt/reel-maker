@@ -1,5 +1,4 @@
-// Corrida a ciegas: arma una carpeta por referencia, le pide el plan a un Claude nuevo como lo hace la app, y mide.
-// Cómo y cuándo usarla: referencias/README.md, "Cómo correr una prueba".
+// Corrida a ciegas. Cómo y cuándo usarla: referencias/README.md, "Cómo correr una prueba".
 import { execFileSync, spawn } from "node:child_process";
 import { closeSync, copyFileSync, existsSync, mkdirSync, openSync, readdirSync, readFileSync, renameSync, rmSync, symlinkSync } from "node:fs";
 import path from "node:path";
@@ -14,7 +13,8 @@ import { validar } from "../src/pasos/validar.js";
 import { permisosParaClaude, promptParaClaude } from "../src/ui/trabajos.js";
 
 const ESTILO_SIN_EJEMPLOS = expandirCasa("~/reels/pancho-y-coca-prueba/b-con-estilo/estilo.md");
-const FUERA_DEL_REPO = ["referencias/", "docs/", "test/", "scripts/", ".github/", ".claude/skills/verify-edits/"];
+const OCULTO_A_CLAUDE = ["referencias/", "docs/", "test/", "scripts/", ".github/", ".claude/skills/verify-edits/"];
+const DELATAN_LA_RESPUESTA = /referencias|Downloads|plan-pasos/;
 const DE_LA_VOZ = ["voz-limpia.wav", "voz-cortes.json", "transcripcion.json", "transcripcion.md"];
 const callado = () => {};
 
@@ -23,14 +23,13 @@ function copiarSiFalta(desde: string, hacia: string) {
   if (!existsSync(hacia)) copyFileSync(desde, hacia);
 }
 
-/** Una copia del repo sin las ediciones reales, con el estilo sin ejemplos de Pancho y Coca. Claude trabaja desde acá. */
 function armarRepoACiegas(destino: string) {
   if (existsSync(destino)) return;
   const temporal = `${destino}.tmp`;
   rmSync(temporal, { recursive: true, force: true });
   const archivos = execFileSync("git", ["ls-files"], { cwd: RAIZ_REPO, encoding: "utf8" })
     .split("\n")
-    .filter((a) => a && !FUERA_DEL_REPO.some((c) => a.startsWith(c)) && existsSync(path.join(RAIZ_REPO, a)));
+    .filter((a) => a && !OCULTO_A_CLAUDE.some((c) => a.startsWith(c)) && existsSync(path.join(RAIZ_REPO, a)));
   for (const a of archivos) {
     mkdirSync(path.dirname(path.join(temporal, a)), { recursive: true });
     copyFileSync(path.join(RAIZ_REPO, a), path.join(temporal, a));
@@ -40,7 +39,6 @@ function armarRepoACiegas(destino: string) {
   renameSync(temporal, destino);
 }
 
-/** Pasos 1 y 2 de "Cómo correr una prueba", más el inventario. Nunca escribe en la carpeta original. */
 async function armarCarpeta(f: FichaReferencia, destino: string): Promise<Proyecto> {
   mkdirSync(path.join(destino, "edit"), { recursive: true });
   if (!existsSync(path.join(destino, "clips"))) symlinkSync(path.join(f.carpeta, "clips"), path.join(destino, "clips"));
@@ -82,7 +80,6 @@ interface Bloque {
   input?: unknown;
 }
 
-/** Qué modelo corrió, cuánto tardó y qué rutas tocó fuera de su carpeta y de la skill. */
 function leerRegistro(registro: string, permitidas: string[]) {
   const resumen = { modelo: "?", minutos: 0, error: true, fuera: new Set<string>() };
   for (const linea of readFileSync(registro, "utf8").split("\n")) {
@@ -100,7 +97,7 @@ function leerRegistro(registro: string, permitidas: string[]) {
     for (const b of e.type === "assistant" ? (e.message?.content ?? []) : []) {
       if (b.type !== "tool_use") continue;
       const entrada = JSON.stringify(b.input ?? {});
-      if (/referencias|Downloads|plan-pasos/.test(entrada)) resumen.fuera.add(`${b.name}: ${entrada}`);
+      if (DELATAN_LA_RESPUESTA.test(entrada)) resumen.fuera.add(`${b.name}: ${entrada}`);
       for (const ruta of entrada.match(/(?:~|\/Users|\/private|\/tmp|\/Volumes)[^\s"'`,;)]*/g) ?? []) {
         if (!permitidas.some((r) => ruta.startsWith(r))) resumen.fuera.add(`${b.name}: ${ruta}`);
       }
