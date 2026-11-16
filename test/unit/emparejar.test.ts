@@ -93,6 +93,19 @@ test("un plano que cambia de velocidad adentro queda para revisar a mano", () =>
   assert.equal(r.revisar, true);
 });
 
+test("un plano que necesita más clip del que hay queda para revisar a mano", () => {
+  const entra = emparejar(plano(playa, 3, 2, 2), [cafe, playa], FPS);
+  assert.equal(entra.faltaClip, 0);
+  assert.equal(entra.revisar, false);
+
+  const en = (segundo: number) => playa.firmas[Math.round(segundo * FPS)];
+  const r = emparejar({ duracion: 4, ajuste: [en(5), en(7), en(9)], puntas: [en(3.4), en(9.9)] }, [cafe, playa], FPS);
+  assert.equal(r.clip, "playa.mov");
+  assert.equal(r.velocidad, 2);
+  assert.ok(Math.abs(r.faltaClip - 1) < 0.11, `le faltan ${r.faltaClip} s`);
+  assert.equal(r.revisar, true);
+});
+
 test("una imagen congelada sale con velocidad 0, y una escena quieta con velocidad normal", () => {
   const congelado = plano(plaza, 3, 2, 0);
   assert.equal(emparejar(congelado, [playa, cafe, plaza], FPS).velocidad, 0);
@@ -125,7 +138,7 @@ test("los segundos del publicado pasan a la voz limpia descontando los silencios
 });
 
 test("el borrador del plan va pegado sobre la voz limpia y arranca cada clip donde empieza a verse", () => {
-  const base = { medio: 0, parecido: 0.9, puntas: [0.9, 0.9] as [number, number], revisar: false, alternativas: [] };
+  const base = { medio: 0, parecido: 0.9, puntas: [0.9, 0.9] as [number, number], faltaClip: 0, revisar: false, alternativas: [] };
   const plan = planDesdePublicado(
     [
       { ...base, desde: 0, hasta: 2.25, clip: "a.mov", arrancaEn: 1, velocidad: 2 },
