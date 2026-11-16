@@ -1,10 +1,10 @@
-// Paso 3: los cortes. Claude los arma; la creadora los ve como un storyboard y cambia lo que quiera.
-import { boton, confirmar, h, icono, imagen, mostrarError, plural, reloj, seg, sinApuro, ventana } from "./dom.js";
+// Paso 3: los cortes. Claude los arma; la creadora los ve como un storyboard y le pide cambios con sus palabras.
+import { boton, confirmar, h, icono, imagen, mostrarError, plural, reloj, seg } from "./dom.js";
 import { bloqueado, encabezado } from "./preparar.js";
 import { errorDeTrabajo, panelVivo, transcurrido } from "./trabajo.js";
 
 // Lo que se recuerda entre redibujos
-const recuerdo = { reel: null, elegido: null, ritmo: null, pedido: "", cambio: "" };
+const recuerdo = { reel: null, ritmo: null, pedido: "", cambio: "" };
 
 const RITMOS = [
   { id: "rapido", titulo: "Rápido", detalle: "Muchos cortes, de menos de 1 s. Para cuando nombrás muchas cosas." },
@@ -12,17 +12,9 @@ const RITMOS = [
   { id: "tranquilo", titulo: "Tranquilo", detalle: "Planos de 1,5 a 2,5 s. Para cuando hay pocas cosas para mostrar." },
 ];
 
-const VELOCIDADES = [
-  { v: 0, texto: "Congelada" },
-  { v: 0.5, texto: "Lenta" },
-  { v: 1, texto: "Normal" },
-  { v: 2, texto: "Rápida" },
-  { v: 4, texto: "Muy rápida" },
-];
-
 export function vistaCortes(ctx) {
   const { reel, trabajo } = ctx;
-  if (recuerdo.reel !== reel.nombre) Object.assign(recuerdo, { reel: reel.nombre, elegido: null, ritmo: null, pedido: "", cambio: "" });
+  if (recuerdo.reel !== reel.nombre) Object.assign(recuerdo, { reel: reel.nombre, ritmo: null, pedido: "", cambio: "" });
   const p = reel.pasos;
   const preparado = p.limpio && p.transcripto && p.inventario;
   const claude = trabajo?.tipo === "claude" ? trabajo : null;
@@ -38,7 +30,7 @@ export function vistaCortes(ctx) {
       tarjetaArmar(ctx),
     ];
   }
-  return editorDePlan(ctx, claude);
+  return vistaDelPlan(ctx, claude);
 }
 
 // --- Claude trabajando ---
@@ -142,7 +134,7 @@ export function avisoDeClaude(inicio) {
       h("strong", null, sinSesion ? "Falta iniciar sesión en Claude" : "Falta Claude Code en esta compu"),
       sinSesion
         ? h("p", null, "Abrí la Terminal, escribí ", h("code", null, "claude"), ", apretá Enter y seguí los pasos para entrar con tu cuenta. Se hace una sola vez. Después volvé acá.")
-        : h("p", null, "Para que Claude arme y cambie los cortes hace falta tenerlo instalado. Pedile ayuda a quien te instaló la app. Mientras tanto, podés cambiar cada plano a mano."),
+        : h("p", null, "Para que Claude arme y cambie los cortes hace falta tenerlo instalado. Pedile ayuda a quien te instaló la app."),
     ),
   );
 }
@@ -202,37 +194,25 @@ function planoDelMensaje(texto) {
   return m ? Number(m[1]) - 1 : null;
 }
 
-export function urlCuadro(nombre, clip, segundo, encuadre, alto = 360) {
-  const q = new URLSearchParams({ archivo: `clips/${clip}`, t: Number(segundo).toFixed(2), vertical: "1", alto: String(alto) });
+function urlCuadro(nombre, clip, segundo, encuadre) {
+  const q = new URLSearchParams({ archivo: `clips/${clip}`, t: Number(segundo).toFixed(2), vertical: "1", alto: "360" });
   if (encuadre !== undefined && encuadre !== null) q.set("encuadre", String(encuadre));
   return `/api/reels/${encodeURIComponent(nombre)}/cuadro?${q}`;
 }
 
-function editorDePlan(ctx, claude) {
+function vistaDelPlan(ctx, claude) {
   const { reel } = ctx;
   const { plan, validacion } = reel;
   const tramos = plan.tramos;
-  if (recuerdo.elegido !== null && recuerdo.elegido >= tramos.length) recuerdo.elegido = null;
   const duracion = tramos.at(-1)?.fin ?? 0;
-  const problemas = new Map();
-  for (const e of validacion?.errores ?? []) {
-    const i = planoDelMensaje(e);
-    if (i !== null) problemas.set(i, amigable(e));
-  }
-
-  const abrir = (i) => {
-    recuerdo.elegido = i;
-    ctx.recargar();
-  };
-
-  const editor = recuerdo.elegido !== null ? editorDePlano(ctx, recuerdo.elegido, problemas.get(recuerdo.elegido)) : null;
+  const conProblema = new Set((validacion?.errores ?? []).map(planoDelMensaje).filter((i) => i !== null));
 
   return h(
     "div",
-    { class: ["cortes", editor && "cortes--con-editor"] },
+    { class: "cortes" },
     encabezado(
       "Tus cortes",
-      "Tocá un plano para cambiarle el video, el momento, el texto o la velocidad.",
+      "Qué se ve en cada momento. Para cambiar algo, pedíselo a Claude.",
       h(
         "div",
         { class: "resumen" },
@@ -245,7 +225,7 @@ function editorDePlan(ctx, claude) {
     claude?.estado === "cancelado" ? h("div", { class: "alerta alerta--amarilla" }, icono("alerta"), h("div", null, "Cancelaste el pedido a Claude. Si llegó a cambiar algo, podés deshacerlo.")) : null,
     burbujaDeClaude(claude),
     avisoDeClaude(ctx.inicio),
-    estadoDelPlan(validacion, abrir),
+    estadoDelPlan(validacion),
     h(
       "div",
       { class: "herramientas" },
@@ -253,9 +233,6 @@ function editorDePlan(ctx, claude) {
       h(
         "div",
         { class: "herramientas__botones" },
-        interruptor("Subtítulos", plan.subtitulos !== false, (v) =>
-          ctx.pedir("/plan", { metodo: "POST", cuerpo: { op: "subtitulos", activos: v } }).catch(mostrarError),
-        ),
         boton("Deshacer", {
           icono: "deshacer",
           clase: "boton--secundario",
@@ -278,7 +255,7 @@ function editorDePlan(ctx, claude) {
     h(
       "div",
       { class: "storyboard" },
-      tramos.map((t, i) => tarjetaDePlano(ctx, t, i, problemas.has(i), () => abrir(i))),
+      tramos.map((t, i) => tarjetaDePlano(ctx, t, i, conProblema.has(i))),
     ),
     h(
       "div",
@@ -287,22 +264,29 @@ function editorDePlan(ctx, claude) {
         ? boton("Siguiente: crear el reel", { icono: "adelante", clase: "boton--primario boton--grande boton--icono-derecha", onclick: () => ctx.ir("reel") })
         : h("p", { class: "suave" }, "Cuando no haya nada para arreglar, vas a poder crear el reel."),
     ),
-    editor,
   );
 }
 
-function estadoDelPlan(v, abrir) {
+function estadoDelPlan(v) {
   if (!v) return null;
   if (v.ok && !v.avisos.length) return h("div", { class: "estado-plan estado-plan--ok" }, icono("check"), "Todo en orden. Cuando quieras, creá el reel.");
-  const item = (texto) => {
-    const i = planoDelMensaje(texto);
-    return h("li", null, i !== null ? h("button", { type: "button", class: "enlace", onclick: () => abrir(i) }, amigable(texto)) : amigable(texto));
-  };
+  const item = (texto) => h("li", null, amigable(texto));
   return h(
     "div",
     null,
     v.errores.length
-      ? h("div", { class: "alerta alerta--error" }, icono("alerta"), h("div", null, h("strong", null, v.errores.length === 1 ? "Hay algo para arreglar" : `Hay ${v.errores.length} cosas para arreglar`), h("ul", null, v.errores.map(item))))
+      ? h(
+          "div",
+          { class: "alerta alerta--error" },
+          icono("alerta"),
+          h(
+            "div",
+            null,
+            h("strong", null, v.errores.length === 1 ? "Hay algo para arreglar" : `Hay ${v.errores.length} cosas para arreglar`),
+            h("ul", null, v.errores.map(item)),
+            h("p", null, "Pedile a Claude que lo arregle."),
+          ),
+        )
       : null,
     v.avisos.length
       ? h("div", { class: "alerta alerta--amarilla" }, icono("alerta"), h("div", null, h("strong", null, "Para tener en cuenta"), h("ul", null, v.avisos.map(item))))
@@ -320,11 +304,11 @@ function textoEnPantalla(texto) {
   return texto ? h("span", { class: "en-pantalla__texto" }, texto.split("\n").map((l, i) => [i ? h("br") : null, l])) : null;
 }
 
-function tarjetaDePlano(ctx, t, i, conProblema, abrir) {
+function tarjetaDePlano(ctx, t, i, conProblema) {
   const velocidad = etiquetaVelocidad(t.velocidad);
   return h(
-    "button",
-    { type: "button", class: ["plano", recuerdo.elegido === i && "plano--elegido", conProblema && "plano--problema"], onclick: abrir },
+    "div",
+    { class: ["plano", conProblema && "plano--problema"] },
     h(
       "div",
       { class: "plano__imagen en-pantalla" },
@@ -345,364 +329,5 @@ function tarjetaDePlano(ctx, t, i, conProblema, abrir) {
       h("div", { class: "plano__tiempo" }, h("strong", null, i + 1), h("span", null, `${reloj(t.inicio)} · ${seg(t.fin - t.inicio)}`)),
       h("p", { class: "plano__frase" }, t.sinVoz ? h("em", { class: "suave" }, t.nota || (t.audioDelClip ? "Se escucha el video" : "Sin voz en off")) : `“${t.frase || "…"}”`),
     ),
-  );
-}
-
-// --- Editor de un plano ---
-
-function editorDePlano(ctx, i, problema) {
-  const { reel } = ctx;
-  const tramos = reel.plan.tramos;
-  const t = tramos[i];
-  const clip = reel.material.clips.find((c) => c.archivo === t.clip);
-  const enInventario = reel.inventario.find((c) => c.archivo === t.clip);
-  const duracionPlano = t.fin - t.inicio;
-  const velocidad = t.velocidad ?? 1;
-  const usa = velocidad === 0 ? 0 : duracionPlano * velocidad;
-
-  const cambiar = (cambios) => ctx.pedir("/plan", { metodo: "POST", cuerpo: { op: "cambiar", indice: i, cambios } }).catch(mostrarError);
-  const operar = (op, extra) => ctx.pedir("/plan", { metodo: "POST", cuerpo: { op, indice: i, ...extra } }).catch(mostrarError);
-  const cerrar = () => {
-    recuerdo.elegido = null;
-    ctx.recargar();
-  };
-  const ir = (j) => {
-    recuerdo.elegido = j;
-    ctx.recargar();
-  };
-
-  // Vista previa: se actualiza al toque mientras se mueve el momento o el encuadre, y se guarda al soltar
-  const previa = imagen(urlCuadro(reel.nombre, t.clip, t.arrancaEn, t.encuadre, 640));
-  const vistaPrevia = sinApuro((segundo, encuadre) => (previa.src = urlCuadro(reel.nombre, t.clip, segundo, encuadre, 640)), 120);
-
-  return h(
-    "aside",
-    { class: "editor", "aria-label": `Plano ${i + 1}`, "data-scroll": "editor" },
-    h(
-      "div",
-      { class: "editor__cabeza" },
-      boton("", { icono: "atras", clase: "boton--icono", title: "Plano anterior", disabled: i === 0, onclick: () => ir(i - 1) }),
-      h("div", { class: "editor__titulo" }, h("strong", null, `Plano ${i + 1}`), h("span", { class: "suave chico" }, `${reloj(t.inicio)} – ${reloj(t.fin)} · ${seg(duracionPlano)}`)),
-      boton("", { icono: "adelante", clase: "boton--icono", title: "Plano siguiente", disabled: i === tramos.length - 1, onclick: () => ir(i + 1) }),
-      boton("", { icono: "equis", clase: "boton--icono", title: "Cerrar", onclick: cerrar }),
-    ),
-    problema ? h("div", { class: "alerta alerta--error alerta--chica" }, icono("alerta"), h("div", null, problema)) : null,
-    h("div", { class: "editor__previa en-pantalla" }, previa, textoEnPantalla(t.texto), t.logo ? h("span", { class: "en-pantalla__logo" }, icono("logo")) : null),
-
-    t.sinVoz ? bloqueDuracion(t, cambiar) : bloqueFrase(ctx, t, i, operar),
-    bloqueVideo(ctx, t, i, cambiar, usa),
-    bloqueMomento(t, clip ?? enInventario, enInventario, usa, cambiar, (s) => vistaPrevia(s, t.encuadre)),
-    clip ? bloqueEncuadre(t, clip, cambiar, (e) => vistaPrevia(t.arrancaEn, e)) : null,
-    bloqueVelocidad(t, cambiar),
-    bloqueTexto(t, cambiar),
-    bloqueLogo(ctx, t, cambiar),
-    t.sinVoz ? bloqueAudio(t, clip, cambiar) : null,
-    t.nota ? h("p", { class: "suave chico editor__nota" }, "Nota: ", t.nota) : null,
-    h(
-      "div",
-      { class: "editor__pie" },
-      boton("Sacar este plano", {
-        icono: "basura",
-        clase: "boton--peligro-suave",
-        onclick: async () => {
-          const texto = t.sinVoz ? "Desaparece del reel." : "Lo que se dice en este plano pasa al plano de al lado.";
-          if (await confirmar(`¿Sacar el plano ${i + 1}?`, texto, { si: "Sacarlo", peligro: true })) {
-            recuerdo.elegido = null;
-            operar("quitar");
-          }
-        },
-      }),
-    ),
-  );
-}
-
-function bloque(titulo, ...contenido) {
-  return h("section", { class: "bloque" }, h("h3", null, titulo), ...contenido);
-}
-
-/** Las palabras de este plano (y las primeras del siguiente), para partir o mover el corte. */
-function bloqueFrase(ctx, t, i, operar) {
-  const { palabras, plan } = ctx.reel;
-  const propias = palabras.filter((w) => w.desde >= t.desde - 0.05 && w.desde < t.hasta);
-  const j = plan.tramos.findIndex((x, k) => k > i && !x.sinVoz);
-  const siguiente = j >= 0 ? plan.tramos[j] : null;
-  const ajenas = siguiente ? palabras.filter((w) => w.desde >= siguiente.desde - 0.05 && w.desde < siguiente.hasta).slice(0, 6) : [];
-
-  const menu = (ancla, opciones) => {
-    document.querySelector(".menu-palabra")?.remove();
-    const caja = h(
-      "div",
-      { class: "menu-palabra", role: "menu" },
-      opciones.map(([texto, accion, ic]) =>
-        boton(texto, {
-          icono: ic,
-          clase: "boton--menu",
-          role: "menuitem",
-          onclick: () => {
-            caja.remove();
-            accion();
-          },
-        }),
-      ),
-    );
-    ancla.after(caja);
-    setTimeout(() => document.addEventListener("click", (e) => !caja.contains(e.target) && caja.remove(), { once: true }), 0);
-  };
-
-  return bloque(
-    "Qué se dice",
-    h("p", { class: "suave chico" }, "Tocá una palabra para partir el plano o mover dónde corta."),
-    h(
-      "div",
-      { class: "palabras" },
-      propias.map((w, k) =>
-        h(
-          "button",
-          {
-            type: "button",
-            class: "palabra",
-            disabled: k === 0,
-            title: k === 0 ? "Así empieza el plano" : null,
-            onclick: (e) =>
-              menu(e.currentTarget, [
-                ["Empezar un plano nuevo acá", () => operar("partir", { segundo: w.desde }), "tijera"],
-                siguiente ? ["Que desde acá siga el plano siguiente", () => operar("corte", { segundo: w.desde }), "adelante"] : null,
-              ].filter(Boolean)),
-          },
-          w.texto,
-        ),
-      ),
-      ajenas.length ? h("span", { class: "palabras__corte", title: "Acá corta al plano siguiente" }, icono("tijera")) : null,
-      ajenas.map((w) => {
-        // Alargar hasta esta palabra (incluida): el corte pasa a la palabra que viene después, si sigue dentro del plano siguiente
-        const despues = palabras.find((x) => x.desde > w.desde);
-        const puede = despues && despues.desde < siguiente.hasta - 0.1;
-        return h(
-          "button",
-          {
-            type: "button",
-            class: "palabra palabra--ajena",
-            disabled: !puede,
-            title: puede ? null : "Es lo último del plano siguiente",
-            onclick: (e) => menu(e.currentTarget, [["Alargar este plano hasta acá", () => operar("corte", { segundo: despues.desde }), "atras"]]),
-          },
-          w.texto,
-        );
-      }),
-    ),
-  );
-}
-
-function bloqueDuracion(t, cambiar) {
-  const pasos = [-0.5, -0.1, 0.1, 0.5];
-  return bloque(
-    "Cuánto dura",
-    h("p", { class: "suave chico" }, "Este plano va sin tu voz en off: la voz espera mientras se ve."),
-    h(
-      "div",
-      { class: "fila" },
-      h("span", { class: "numero-grande" }, seg(t.duracion)),
-      pasos.map((p) =>
-        boton(`${p > 0 ? "+" : "−"}${String(Math.abs(p)).replace(".", ",")}`, {
-          clase: "boton--secundario boton--chico",
-          disabled: t.duracion + p < 0.2,
-          onclick: () => cambiar({ duracion: Math.round((t.duracion + p) * 100) / 100 }),
-        }),
-      ),
-    ),
-  );
-}
-
-function bloqueVideo(ctx, t, i, cambiar, usa) {
-  const { reel } = ctx;
-  const elegirVideo = () => {
-    const descripciones = new Map(reel.inventario.map((c) => [c.archivo, c.descripcion]));
-    const cerrar = ventana(
-      [
-        h("h2", null, `Elegí el video del plano ${i + 1}`),
-        h(
-          "div",
-          { class: "selector-videos" },
-          reel.material.clips.map((c) =>
-            h(
-              "button",
-              {
-                type: "button",
-                class: ["selector-video", c.archivo === t.clip && "selector-video--actual"],
-                onclick: () => {
-                  cerrar();
-                  // Si el momento de antes entra en el video nuevo, se mantiene; si no, arranca del principio
-                  const arrancaEn = t.arrancaEn + usa <= c.duracion ? t.arrancaEn : 0;
-                  cambiar({ clip: c.archivo, arrancaEn });
-                },
-              },
-              h("div", { class: "selector-video__imagen" }, imagen(c.miniatura), h("span", { class: "clip__duracion" }, seg(c.duracion))),
-              h("strong", { class: "corta" }, c.archivo),
-              descripciones.get(c.archivo) ? h("span", { class: "suave chico selector-video__descripcion" }, descripciones.get(c.archivo)) : null,
-            ),
-          ),
-        ),
-      ],
-      { clase: "ventana--grande" },
-    );
-  };
-  return bloque("Video", h("div", { class: "fila fila--separada" }, h("span", { class: "archivo-unico__nombre" }, icono("video"), t.clip), boton("Cambiar video", { clase: "boton--secundario boton--chico", onclick: elegirVideo })));
-}
-
-function bloqueMomento(t, clip, enInventario, usa, cambiar, previa) {
-  if (!clip) return null;
-  const maximo = Math.max(0, clip.duracion - usa - 0.05);
-  const valor = h("strong", null, seg(t.arrancaEn));
-  const ventanaUso = h("div", { class: "linea-clip__uso" });
-  const dibujarUso = (desde) => {
-    ventanaUso.style.left = `${(desde / clip.duracion) * 100}%`;
-    ventanaUso.style.width = `${Math.max(1, (Math.max(usa, 0.05) / clip.duracion) * 100)}%`;
-  };
-  dibujarUso(t.arrancaEn);
-  const deslizador = h("input", {
-    type: "range",
-    class: "deslizador",
-    min: 0,
-    max: maximo.toFixed(2),
-    step: 0.05,
-    value: Math.min(t.arrancaEn, maximo),
-    "aria-label": "Desde qué segundo del video",
-    oninput: () => {
-      const s = Number(deslizador.value);
-      valor.textContent = seg(s);
-      dibujarUso(s);
-      previa(s);
-    },
-    onchange: () => cambiar({ arrancaEn: Number(deslizador.value) }),
-  });
-  const mover = (d) => cambiar({ arrancaEn: Math.min(maximo, Math.max(0, Math.round((t.arrancaEn + d) * 100) / 100)) });
-  const momentos = enInventario?.momentos ?? [];
-  const cercano = momentos.reduce((m, x, k) => (Math.abs(x - t.arrancaEn) < Math.abs(momentos[m] - t.arrancaEn) ? k : m), 0);
-
-  return bloque(
-    "Desde qué momento del video",
-    h("p", { class: "suave chico" }, "Arranca en el segundo ", valor, ` · usa ${usa ? seg(usa) : "un solo cuadro"} de un video de ${seg(clip.duracion)}.`),
-    momentos.length
-      ? h(
-          "div",
-          { class: "tira" },
-          momentos.map((m, k) =>
-            h(
-              "button",
-              { type: "button", class: ["tira__cuadro", k === cercano && "tira__cuadro--cerca"], title: `Desde el segundo ${seg(m)}`, onclick: () => cambiar({ arrancaEn: Math.min(m, maximo) }) },
-              imagen(urlCuadro(ctxNombre(), t.clip, m, t.encuadre, 160)),
-              h("span", null, seg(m)),
-            ),
-          ),
-        )
-      : null,
-    h("div", { class: "linea-clip" }, ventanaUso, deslizador),
-    h(
-      "div",
-      { class: "fila fila--centro" },
-      [-1, -0.2, 0.2, 1].map((d) => boton(`${d > 0 ? "+" : "−"}${String(Math.abs(d)).replace(".", ",")} s`, { clase: "boton--secundario boton--chico", onclick: () => mover(d) })),
-    ),
-  );
-}
-
-// El nombre del reel abierto (para armar URLs dentro de bloques que no reciben el contexto)
-function ctxNombre() {
-  return recuerdo.reel;
-}
-
-function bloqueEncuadre(t, clip, cambiar, previa) {
-  if (!clip.ancho || !clip.alto) return null;
-  const proporcion = clip.ancho / clip.alto;
-  if (Math.abs(proporcion - 9 / 16) < 0.02) return null; // Ya es vertical como el reel: no hay nada que recortar
-  const horizontal = proporcion > 9 / 16;
-  const [a, b] = horizontal ? ["Izquierda", "Derecha"] : ["Arriba", "Abajo"];
-  const nombres = horizontal ? { izquierda: 0, centro: 0.5, derecha: 1 } : { arriba: 0, centro: 0.5, abajo: 1 };
-  const actual = typeof t.encuadre === "number" ? t.encuadre : t.encuadre in { izquierda: 1, arriba: 1 } ? 0 : t.encuadre in { derecha: 1, abajo: 1 } ? 1 : 0.5;
-  const deslizador = h("input", {
-    type: "range",
-    class: "deslizador",
-    min: 0,
-    max: 1,
-    step: 0.05,
-    value: actual,
-    "aria-label": "Encuadre",
-    oninput: () => previa(Number(deslizador.value)),
-    onchange: () => cambiar({ encuadre: Number(deslizador.value) }),
-  });
-  return bloque(
-    "Encuadre",
-    h("p", { class: "suave chico" }, horizontal ? "El video es horizontal: elegí qué parte se ve." : "Elegí qué parte del video se ve."),
-    h("div", { class: "deslizador-con-extremos" }, h("span", { class: "suave chico" }, a), deslizador, h("span", { class: "suave chico" }, b)),
-    h(
-      "div",
-      { class: "segmentado" },
-      Object.entries(nombres).map(([nombre, v]) =>
-        h("button", { type: "button", class: ["segmentado__opcion", Math.abs(actual - v) < 0.01 && "segmentado__opcion--elegida"], onclick: () => cambiar({ encuadre: nombre }) }, nombre[0].toUpperCase() + nombre.slice(1)),
-      ),
-    ),
-  );
-}
-
-function bloqueVelocidad(t, cambiar) {
-  const actual = t.velocidad ?? 1;
-  const conAudio = t.sinVoz && t.audioDelClip;
-  const opciones = VELOCIDADES.some((o) => o.v === actual) ? VELOCIDADES : [...VELOCIDADES, { v: actual, texto: `×${String(actual).replace(".", ",")}` }];
-  return bloque(
-    "Velocidad",
-    conAudio ? h("p", { class: "suave chico" }, "Como se escucha el video, va a velocidad normal.") : null,
-    h(
-      "div",
-      { class: "segmentado" },
-      opciones.map((o) =>
-        h(
-          "button",
-          { type: "button", class: ["segmentado__opcion", o.v === actual && "segmentado__opcion--elegida"], disabled: conAudio && o.v !== 1, onclick: () => o.v !== actual && cambiar({ velocidad: o.v }) },
-          o.texto,
-        ),
-      ),
-    ),
-  );
-}
-
-function bloqueTexto(t, cambiar) {
-  const campo = h("textarea", {
-    class: "campo",
-    rows: 2,
-    placeholder: "Ej: CASA GIRO\nMARTÍNEZ",
-    value: t.texto ?? "",
-    onblur: () => campo.value !== (t.texto ?? "") && cambiar({ texto: campo.value.trim() ? campo.value : null }),
-  });
-  return bloque(
-    "Texto grande",
-    h("p", { class: "suave chico" }, "Aparece arriba, palabra por palabra mientras lo decís. Con Enter cortás la línea. Si el plano de al lado tiene el mismo texto, queda fijo entre los dos."),
-    campo,
-  );
-}
-
-function bloqueLogo(ctx, t, cambiar) {
-  const hayLogo = Boolean(ctx.reel.material.logo);
-  return bloque(
-    "Logo",
-    interruptor("Mostrar el logo en el centro", Boolean(t.logo), (v) => cambiar({ logo: v }), !hayLogo && !t.logo),
-    !hayLogo ? h("p", { class: "suave chico" }, "Para usarlo, subí un logo en el paso Material.") : null,
-  );
-}
-
-function bloqueAudio(t, clip, cambiar) {
-  const tieneAudio = clip?.tieneAudio ?? true;
-  return bloque(
-    "Sonido",
-    interruptor("Que se escuche el video", Boolean(t.audioDelClip), (v) => cambiar({ audioDelClip: v }), !tieneAudio && !t.audioDelClip),
-    h("p", { class: "suave chico" }, tieneAudio ? "Por ejemplo, alguien que habla a cámara. Si no, solo suena la música." : "Este video no tiene sonido."),
-  );
-}
-
-function interruptor(texto, valor, alCambiar, deshabilitado) {
-  return h(
-    "label",
-    { class: ["interruptor", deshabilitado && "interruptor--apagado"] },
-    h("input", { type: "checkbox", checked: valor, disabled: deshabilitado, onchange: (e) => alCambiar(e.currentTarget.checked) }),
-    h("span", { class: "interruptor__pista" }),
-    h("span", null, texto),
   );
 }

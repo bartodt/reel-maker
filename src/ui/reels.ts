@@ -4,7 +4,6 @@ import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
 import { SUBTITULOS } from "../config.js";
-import { aplicarEdicion } from "../lib/edicion.js";
 import { ErrorReel } from "../lib/errores.js";
 import { etapaActual, pasosHechos, type Archivos } from "../lib/estado.js";
 import { info } from "../lib/ffmpeg.js";
@@ -320,7 +319,7 @@ export function quitarClip(p: Proyecto, archivo: string) {
       .filter(Boolean);
     if (planos.length) {
       const cuales = planos.length === 1 ? `el plano ${planos[0]}` : `los planos ${planos.slice(0, -1).join(", ")} y ${planos.at(-1)}`;
-      throw new ErrorReel(`Este video se usa en ${cuales}. Cambialo o sacá ${planos.length === 1 ? "ese plano" : "esos planos"} en los cortes y después sacá el video.`);
+      throw new ErrorReel(`Este video se usa en ${cuales}. Pedile a Claude que lo cambie y después sacá el video.`);
     }
   }
   const quitados = path.join(p.edit, "quitados");
@@ -393,13 +392,15 @@ export function descartarVersionSiNoCambio(p: Proyecto, copia: string | undefine
   if (copia && existsSync(copia) && existsSync(p.plan) && readFileSync(copia, "utf8") === readFileSync(p.plan, "utf8")) rmSync(copia);
 }
 
-export function editarPlan(p: Proyecto, pedido: unknown) {
+/** Prende o apaga los subtítulos del reel. Si queda como viene por defecto (config), se saca el campo. */
+export function ponerSubtitulos(p: Proyecto, activos: boolean) {
   if (!existsSync(p.plan)) throw new ErrorReel("Todavía no hay cortes.");
-  const actual = leerJson<Plan>(p.plan);
-  const nuevo = aplicarEdicion(actual, pedido);
-  if (JSON.stringify(nuevo) === JSON.stringify(actual)) return; // No cambió nada: no hace falta guardar ni dejar algo para deshacer
+  const plan = leerJson<Plan>(p.plan);
+  if ((plan.subtitulos ?? SUBTITULOS.activados) === activos) return;
   guardarVersion(p);
-  guardarJson(p.plan, nuevo);
+  if (activos === SUBTITULOS.activados) delete plan.subtitulos;
+  else plan.subtitulos = activos;
+  guardarJson(p.plan, plan);
 }
 
 export function deshacer(p: Proyecto) {

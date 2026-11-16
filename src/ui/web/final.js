@@ -44,7 +44,7 @@ export function vistaReel(ctx) {
           { class: "resumen resumen--centro" },
           h("span", { class: "chip" }, icono("reloj"), reloj(reel.validacion?.duracion ?? 0)),
           h("span", { class: "chip" }, icono("video"), plural(reel.plan.tramos.length, "plano", "planos")),
-          h("span", { class: "chip" }, icono("texto"), "Subtítulos"),
+          reel.plan.subtitulos ? h("span", { class: "chip" }, icono("texto"), "Subtítulos") : null,
           m.musica ? h("span", { class: "chip" }, icono("musica"), "Música") : null,
           reel.plan.tramos.some((t) => t.logo) ? h("span", { class: "chip" }, icono("logo"), "Logo") : null,
         ),
@@ -89,7 +89,7 @@ export function vistaReel(ctx) {
       ),
       h("div", { class: "separador" }),
       pedido,
-      h("p", { class: "suave chico" }, "Después de un cambio, volvé a crear el reel para verlo. También podés tocar cada plano a mano en ", h("a", { href: `#/reel/${encodeURIComponent(reel.nombre)}/cortes` }, "Cortes"), "."),
+      h("p", { class: "suave chico" }, "Después de un cambio, volvé a crear el reel para verlo."),
     ),
   );
 }
@@ -101,6 +101,15 @@ function tarjetaEdits(ctx, planOk) {
   const armar = () => ctx.pedir("/edits", { metodo: "POST", cuerpo: {} }).catch(mostrarError);
   const fallo = trabajo?.tipo === "edits" && trabajo.estado === "error" ? trabajo : null;
   const ya = reel.edits;
+  const subtitulos = h("input", {
+    type: "checkbox",
+    checked: reel.plan.subtitulos,
+    onchange: () =>
+      ctx.pedir("/subtitulos", { metodo: "POST", cuerpo: { activos: subtitulos.checked } }).catch((e) => {
+        subtitulos.checked = !subtitulos.checked;
+        mostrarError(e);
+      }),
+  });
   return h(
     "section",
     { class: "tarjeta tarjeta--destacada centro" },
@@ -109,6 +118,7 @@ function tarjetaEdits(ctx, planOk) {
       ? h("p", { class: "suave" }, `Abrí Edits: está como "${ya.titulo}". Lo armaste ${haceCuanto(ya.modificado)}.`)
       : h("p", { class: "suave" }, "La app lo arma en Edits con tus cortes, tu voz, los textos y los subtítulos. Después lo retocás y lo publicás desde ahí."),
     ya?.cortesCambiados ? h("p", null, h("strong", null, "Cambiaste los cortes después."), " Si lo armás de nuevo, se crea otro proyecto en Edits y el anterior queda como está.") : null,
+    h("label", { class: "interruptor" }, subtitulos, h("span", { class: "interruptor__pista" }), h("span", null, "Con subtítulos")),
     fallo ? errorDeTrabajo(fallo, { reintentar: armar }) : null,
     planOk
       ? boton(ya ? "Armarlo de nuevo en Edits" : "Armarlo en Edits", { icono: "play", clase: ya && !ya.cortesCambiados ? "boton--secundario" : "boton--primario boton--enorme", onclick: armar })

@@ -14,13 +14,13 @@ import {
   abrirReel,
   crearReel,
   deshacer,
-  editarPlan,
   guardarDescripcion,
   guardarGuion,
   guardarSubida,
   huella,
   leerReel,
   listarReels,
+  ponerSubtitulos,
   quitarClip,
   type TipoArchivo,
 } from "./reels.js";
@@ -220,9 +220,13 @@ export function crearServidor(o: { carpetaReels: string }) {
         guardarDescripcion(p, clip, descripcion);
         return json(res, 200, { ok: true });
       }
-      case "POST /reels/:n/plan":
-        editarPlan(p, await leerCuerpo(req));
+      case "POST /reels/:n/subtitulos": {
+        const { activos } = await leerCuerpo(req);
+        if (typeof activos !== "boolean") throw new ErrorReel("Los subtítulos van o no van.");
+        if (trabajoDe(p)?.estado === "corriendo") throw new ErrorReel("Esperá a que termine lo que se está haciendo y probá de nuevo.");
+        ponerSubtitulos(p, activos);
         return conTrabajo();
+      }
       case "POST /reels/:n/deshacer":
         deshacer(p);
         return conTrabajo();
