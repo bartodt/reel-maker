@@ -42,17 +42,25 @@ La prueba completa es un comando:
 npm run verificar-edits
 ```
 
-Tarda unos 30 segundos. Arma con el material de Pancho y Coca un reel chico de 7 planos (gancho con texto, alguien del clip hablando, una velocidad y un cierre congelado con logo) en `~/reels/_verificacion/verificar-edits/prueba-<fecha>/`. Lo manda a Edits por el mismo camino que `npm run edits`. Después compara la línea de tiempo de Edits (`elements` y `captions`) con lo que pide el plan (`diferenciasConEdits` de `src/lib/montaje.ts`), guarda tres cuadros y borra el proyecto de prueba. Sale bien cuando imprime, en orden:
+Tarda unos 30 segundos. Arma con el material de Pancho y Coca un reel chico de 7 planos (gancho con texto, alguien del clip hablando, una velocidad y un cierre congelado con logo) en `~/reels/_verificacion/verificar-edits/prueba-<fecha>/`. Lo manda a Edits por el mismo camino que `npm run edits`. Después compara la línea de tiempo de Edits (`elements` y `captions`) con lo que pide el plan (`diferenciasConEdits` de `src/lib/montaje.ts`), guarda tres cuadros y borra el proyecto de prueba. Sale bien cuando imprime esto, una línea por plano, y termina con código de salida 0:
 
 ```
 Edits responde
-Plano 1/7 … Plano 7/7
+Copiando el material para Edits
+Proyecto nuevo en Edits: prueba-<fecha>
+Plano 1/7
+...
+Plano 7/7
+Poniendo la voz
+Poniendo los textos
+Escribiendo los subtítulos
+Proyecto guardado en Edits: "prueba-<fecha>".
 Coincide con el plan
 Cuadros en edit/verificacion/ (<ruta>)
 Proyecto de prueba borrado
 ```
 
-con código de salida 0. Si algo no coincide, imprime `No coincide con el plan:` con una línea por diferencia, igual borra el proyecto y sale con código 1.
+Si algo no coincide, imprime `No coincide con el plan:` con una línea por diferencia, igual borra el proyecto y sale con código 1.
 
 Para probar otra cosa (el reel completo, la app, una falla), seguí el archivo que corresponda en [features/](features/README.md).
 
