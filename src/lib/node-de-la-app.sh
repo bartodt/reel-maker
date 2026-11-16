@@ -1,0 +1,1 @@
+export PATH="$REEL_CARPETA_NODE:$PATH"
