@@ -4,8 +4,8 @@ import path from "node:path";
 import { comparar, type Referencia } from "../lib/comparar.js";
 import { expandirCasa } from "../lib/entorno.js";
 import { ErrorReel } from "../lib/errores.js";
-import type { Plan } from "../lib/plan.js";
-import { guardarJson, leerJson } from "../lib/proyecto.js";
+import { revisarForma, type Plan } from "../lib/plan.js";
+import { guardarJson, leerJsonRevisado } from "../lib/proyecto.js";
 import { leerReferencias, type FichaReferencia } from "../lib/referencias.js";
 
 const TITULOS = {
@@ -55,20 +55,18 @@ export async function medir(carpeta: string | undefined, log = console.log, fich
 }
 
 function medirUna(f: FichaReferencia, ruta: string): Medida {
-  const referencia = leerJson<Referencia>(f.archivoPlan);
-  let plan: Plan;
   try {
-    plan = leerJson<Plan>(ruta);
-  } catch {
-    throw new ErrorReel(`${f.nombre}: el plan no es un JSON válido (${ruta}).`);
-  }
-  if (!Array.isArray(plan?.tramos)) throw new ErrorReel(`${f.nombre}: el plan no tiene "tramos" (${ruta}).`);
-  try {
-    return redondear(comparar(plan, referencia));
+    return redondear(comparar(leerPlan(ruta, "el plan"), leerPlan(f.archivoPlan, "el plan de referencia") as Referencia));
   } catch (e) {
     if (e instanceof ErrorReel) throw new ErrorReel(`${f.nombre}: ${e.message}`);
     throw e;
   }
+}
+
+function leerPlan(ruta: string, que: string): Plan {
+  const { errores, plan } = revisarForma(leerJsonRevisado(ruta, que));
+  if (!plan || errores.length) throw new ErrorReel(`${que} está mal armado (${ruta}):\n  ${errores.join("\n  ")}`);
+  return plan;
 }
 
 function redondear(m: Medida): Medida {
