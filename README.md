@@ -99,7 +99,7 @@ Los tramos van en el orden en que se ven:
 ```
 
 - `ritmo` (opcional): `"rapido"`, `"normal"` o `"tranquilo"`. Si los planos no siguen ese ritmo, `validar` te avisa.
-- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Con subtítulos" de la tarjeta de Edits, en "Tu reel".
+- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Con subtítulos" de "Tu reel".
 - Tramo **con voz**: `desde` / `hasta` son segundos sobre la voz limpia (los que aparecen en `edit/transcripcion.md`). Los tramos con voz tienen que ir pegados entre sí y cubrir toda la voz.
 - Tramo **sin voz**: `duracion` en segundos. La voz en off espera mientras tanto; solo suena la música, o el clip si tiene `audioDelClip`.
 - `clip`: nombre del archivo dentro de `clips/`.
