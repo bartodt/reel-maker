@@ -7,16 +7,27 @@ export interface FichaReferencia {
   nombre: string;
   carpeta: string;
   archivoPlan: string;
+  /** El logo y el guion que recibe una corrida a ciegas, si la carpeta del reel no los tiene */
+  logo?: string;
+  guion?: string;
 }
 
 const TABLA_REFERENCIAS = path.join(RAIZ_REPO, "referencias", "referencias.json");
 
 export function leerReferencias(archivo = TABLA_REFERENCIAS): FichaReferencia[] {
-  const tabla = leerJsonRevisado(archivo, "la tabla de referencias") as Record<string, { carpeta?: unknown; plan?: unknown }>;
+  const tabla = leerJsonRevisado(archivo, "la tabla de referencias") as Record<string, Record<string, unknown>>;
+  const ruta = (r: string) => (r.startsWith("~") ? expandirCasa(r) : path.resolve(path.dirname(archivo), r));
   return Object.entries(tabla).map(([nombre, r]) => {
     if (typeof r?.carpeta !== "string" || typeof r?.plan !== "string") {
       throw new ErrorReel(`En ${archivo}, "${nombre}" tiene que tener "carpeta" y "plan".`);
     }
-    return { nombre, carpeta: expandirCasa(r.carpeta), archivoPlan: path.resolve(path.dirname(archivo), r.plan) };
+    const ficha: FichaReferencia = { nombre, carpeta: expandirCasa(r.carpeta), archivoPlan: ruta(r.plan) };
+    for (const campo of ["logo", "guion"] as const) {
+      const valor = r[campo];
+      if (valor === undefined) continue;
+      if (typeof valor !== "string") throw new ErrorReel(`En ${archivo}, el "${campo}" de "${nombre}" tiene que ser una ruta.`);
+      ficha[campo] = ruta(valor);
+    }
+    return ficha;
   });
 }

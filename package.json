@@ -17,6 +17,7 @@
     "comparar": "tsx src/cli.ts comparar",
     "reconstruir": "tsx src/cli.ts reconstruir",
     "medir": "tsx src/cli.ts medir",
+    "corrida-a-ciegas": "tsx scripts/corrida-a-ciegas.ts",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/unit/*.test.ts",
     "test:e2e": "node --import tsx --test test/e2e/*.test.ts",
