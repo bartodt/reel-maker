@@ -59,6 +59,15 @@ test("la carpeta sale con ~ resuelto y el plan relativo a la tabla", () => {
   ]);
 });
 
+test("el logo y el guion de una corrida a ciegas salen con ~ resuelto o relativos a la tabla", () => {
+  const archivo = tablaDePrueba({ playa: { carpeta: "~/reels/playa", plan: "playa/plan-real.json", logo: "~/reels/playa/logo.png", guion: "playa/guion.md" } });
+  const [playa] = leerReferencias(archivo);
+  assert.equal(playa.logo, path.join(process.env.HOME!, "reels", "playa", "logo.png"));
+  assert.equal(playa.guion, path.join(path.dirname(archivo), "playa", "guion.md"));
+  const roto = tablaDePrueba({ playa: { carpeta: "~/reels/playa", plan: "playa/plan-real.json", logo: 3 } });
+  assert.throws(() => leerReferencias(roto), (e) => e instanceof ErrorReel && e.message.includes('"logo"'));
+});
+
 test("avisa si a una referencia de la tabla le falta el plan", () => {
   const archivo = tablaDePrueba({ "casa-giro": { carpeta: "~/reels/hola-luli" } });
   assert.throws(() => leerReferencias(archivo), (e) => e instanceof ErrorReel && e.message.includes('"casa-giro"'));

@@ -140,6 +140,33 @@ function aMenosDe(a: number, b: number, limite: number): boolean {
   return Math.abs(Math.round(a * 1000) - Math.round(b * 1000)) < Math.round(limite * 1000);
 }
 
+export interface ClipDisponible {
+  archivo: string;
+  duracion: number;
+}
+
+/** Un plan de control para saber cuánto da `comparar` sin elegir nada: un clip al azar entre cada par de cortes. */
+export function planAlAzar(duracionVoz: number, cortes: number[], clips: ClipDisponible[], azar: () => number): Plan {
+  const bordes = [0, ...cortes.filter((c) => c > 0 && c < duracionVoz).sort((a, b) => a - b), duracionVoz];
+  const tramos = bordes.slice(1).map((hasta, i) => {
+    const desde = bordes[i];
+    const clip = clips[Math.floor(azar() * clips.length)];
+    return { desde, hasta, clip: clip.archivo, arrancaEn: azar() * Math.max(0, clip.duracion - (hasta - desde)) };
+  });
+  return { tramos: tramos.filter((t) => t.hasta > t.desde) };
+}
+
+/** Números al azar que se repiten con la misma semilla (mulberry32). */
+export function azarConSemilla(semilla: number): () => number {
+  let a = semilla >>> 0;
+  return () => {
+    a = (a + 0x6d2b79f5) >>> 0;
+    let t = Math.imul(a ^ (a >>> 15), 1 | a);
+    t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t;
+    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
+  };
+}
+
 /** "al principio: 1.0 s de IMG_0672", "en el segundo 2.7 de la voz: 1.8 s de IMG_0638 con su audio", ... */
 export function describirSinVoz(tramos: Tramo[]): string[] {
   const ultimaVoz = tramos.filter((t) => !esSinVoz(t)).at(-1) as TramoConVoz | undefined;

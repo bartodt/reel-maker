@@ -1,7 +1,9 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparar, cortesEnLaVoz, describirSinVoz, type Referencia } from "../../src/lib/comparar.js";
+import { azarConSemilla, comparar, cortesEnLaVoz, describirSinVoz, planAlAzar, type Referencia } from "../../src/lib/comparar.js";
 import type { Plan } from "../../src/lib/plan.js";
+import { leerJson } from "../../src/lib/proyecto.js";
+import { leerReferencias } from "../../src/lib/referencias.js";
 
 const referencia: Referencia = {
   tramos: [
@@ -122,4 +124,24 @@ test("dos cortes a 0,3 s justos no forman pareja, en cualquier segundo de la voz
 
 test("avisa si alguno no tiene tramos con voz", () => {
   assert.throws(() => comparar({ tramos: [{ duracion: 1, clip: "a.mov", arrancaEn: 0 }] }, referencia), /al menos un tramo con voz/);
+});
+
+test("un plan al azar llena la voz entre los cortes que se le piden, con momentos que entran en el clip", () => {
+  const plan = planAlAzar(6, [4, 2], [{ archivo: "a.mov", duracion: 3 }, { archivo: "b.mov", duracion: 10 }], azarConSemilla(1));
+  assert.deepEqual(plan.tramos.map((t) => ("desde" in t ? [t.desde, t.hasta] : [])), [[0, 2], [2, 4], [4, 6]]);
+  for (const t of plan.tramos) assert.ok(t.arrancaEn >= 0 && t.arrancaEn + 2 <= (t.clip === "a.mov" ? 3 : 10), JSON.stringify(t));
+});
+
+test("un plan al azar queda debajo de 30% de mismo contenido en cada referencia, aunque elija solo entre los clips de la referencia", () => {
+  for (const r of leerReferencias()) {
+    const real = leerJson<Referencia>(r.archivoPlan);
+    const clips = [...new Set(real.tramos.flatMap((t) => [t.clip, ...(t.alternativas ?? [])]))].map((archivo) => ({ archivo, duracion: 60 }));
+    const voz = Math.max(...real.tramos.map((t) => ("hasta" in t ? t.hasta : 0)));
+    const contenido = Array.from({ length: 20 }, (_, s) => {
+      const azar = azarConSemilla(s + 1);
+      const cortes = cortesEnLaVoz(real.tramos).map(() => azar() * voz);
+      return comparar(planAlAzar(voz, cortes, clips, azar), real).mismoContenido;
+    }).sort((a, b) => a - b);
+    assert.ok(contenido[10] < 0.3, `${r.nombre}: ${contenido.map((c) => Math.round(c * 100)).join(" ")}`);
+  }
 });
