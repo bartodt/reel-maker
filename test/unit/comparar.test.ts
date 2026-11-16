@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { comparar, describirSinVoz, type Referencia } from "../../src/lib/comparar.js";
+import { comparar, cortesEnLaVoz, describirSinVoz, type Referencia } from "../../src/lib/comparar.js";
 import type { Plan } from "../../src/lib/plan.js";
 
 const referencia: Referencia = {
@@ -41,6 +41,70 @@ test("junta los momentos en que muestran otra cosa", () => {
 
 test("describe dónde van los tramos sin voz", () => {
   assert.deepEqual(describirSinVoz(referencia.tramos), ["al principio: 1.0 s de pancho.mov", "al final: 3.0 s de tren.mov"]);
+});
+
+const tresPlanos: Referencia = {
+  tramos: [
+    { desde: 0, hasta: 2, clip: "a.mov", arrancaEn: 0 },
+    { desde: 2, hasta: 4, clip: "b.mov", arrancaEn: 0 },
+    { desde: 4, hasta: 6, clip: "c.mov", arrancaEn: 0 },
+  ],
+};
+
+test("pone los cortes en segundos de la voz, también los de los tramos sin voz", () => {
+  assert.deepEqual(cortesEnLaVoz(referencia.tramos), [0, 2, 4]);
+});
+
+test("un plan igual a la referencia tiene todos los cortes en el mismo lugar", () => {
+  const c = comparar(referencia, referencia, 0.1);
+  assert.equal(c.cortes, 1);
+  assert.equal(c.cortesQueCoinciden, 3);
+});
+
+test("con cada corte 0,5 s tarde no coincide ningún corte, y el contenido solo pierde esos 0,5 s", () => {
+  const plan: Plan = {
+    tramos: [
+      { desde: 0, hasta: 2.5, clip: "a.mov", arrancaEn: 0 },
+      { desde: 2.5, hasta: 4.5, clip: "b.mov", arrancaEn: 0 },
+      { desde: 4.5, hasta: 6, clip: "c.mov", arrancaEn: 0 },
+    ],
+  };
+  const c = comparar(plan, tresPlanos, 0.1);
+  assert.equal(c.cortes, 0);
+  assert.ok(Math.abs(c.mismoContenido - 5 / 6) < 0.02, String(c.mismoContenido));
+});
+
+test("un plan sin cortes no tiene ninguno en el mismo lugar", () => {
+  const c = comparar({ tramos: [{ desde: 0, hasta: 6, clip: "a.mov", arrancaEn: 0 }] }, tresPlanos, 0.1);
+  assert.equal(c.cortes, 0);
+  assert.deepEqual(c.totalCortes, { plan: 0, referencia: 2 });
+});
+
+test("partir una toma para cambiarle la velocidad o el texto no es un corte, saltar dentro del clip sí", () => {
+  const partida: Plan = {
+    tramos: [
+      { desde: 0, hasta: 1, clip: "a.mov", arrancaEn: 0 },
+      { desde: 1, hasta: 2, clip: "a.mov", arrancaEn: 1, velocidad: 2, texto: "LA PLAYA" },
+      ...tresPlanos.tramos.slice(1),
+    ],
+  };
+  const conSegundo = (arrancaEn: number) => partida.tramos.map((t, i) => (i === 1 ? { ...t, arrancaEn } : t));
+  assert.equal(comparar(partida, tresPlanos, 0.1).cortes, 1);
+  assert.deepEqual(cortesEnLaVoz(conSegundo(1.43)), [2, 4], "un salto de 0,43 s, como el de la caminata de Pancho y Coca, sigue la toma");
+  assert.deepEqual(cortesEnLaVoz(conSegundo(8)), [1, 2, 4]);
+});
+
+test("cada corte de la referencia empareja con uno solo del plan, así que los que sobran bajan", () => {
+  const plan: Plan = {
+    tramos: [
+      { desde: 0, hasta: 1.9, clip: "a.mov", arrancaEn: 0 },
+      { desde: 1.9, hasta: 2.1, clip: "x.mov", arrancaEn: 0 },
+      ...tresPlanos.tramos.slice(1).map((t, i) => (i === 0 ? { ...t, desde: 2.1 } : t)),
+    ],
+  };
+  const c = comparar(plan, tresPlanos, 0.1);
+  assert.equal(c.cortesQueCoinciden, 2);
+  assert.equal(c.cortes, (2 * 2) / (3 + 2));
 });
 
 test("avisa si alguno no tiene tramos con voz", () => {

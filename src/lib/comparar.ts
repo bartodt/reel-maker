@@ -1,5 +1,5 @@
 import { ErrorReel } from "./errores.js";
-import { esSinVoz, planoTipico, type Plan, type Tramo, type TramoConVoz } from "./plan.js";
+import { duracionEnPantalla, esSinVoz, planoTipico, type Plan, type Tramo, type TramoConVoz } from "./plan.js";
 
 /**
  * Un plan de referencia: lo que editó el usuario a mano, en el mismo formato que plan.json.
@@ -24,6 +24,11 @@ export interface Comparacion {
   mismoClip: number;
   /** Parte del tiempo de voz en que usa el mismo clip y el mismo momento del clip (más o menos 1,5 s) */
   mismoMomento: number;
+  /** Parte de los cortes, sumando los del plan y los de la referencia, que forman pareja con uno del otro lado a menos de 0,3 s */
+  cortes: number;
+  totalCortes: { plan: number; referencia: number };
+  /** Parejas de un corte del plan y uno de la referencia. Cada corte entra en una sola, así que los que sobran no suman. */
+  cortesQueCoinciden: number;
   planos: { plan: number; referencia: number };
   planoTipico: { plan: number; referencia: number };
   sinVoz: { plan: string[]; referencia: string[] };
@@ -35,6 +40,8 @@ export interface Comparacion {
 
 const MISMO_MOMENTO = 1.5;
 const DIFERENCIA_MINIMA = 0.3;
+const CORTE_CERCA = 0.3;
+const MISMA_TOMA = 0.5;
 
 export function comparar(plan: Plan, referencia: Referencia, paso = 0.05): Comparacion {
   const conVoz = <T extends Tramo>(tramos: T[]) => tramos.filter((t): t is T & TramoConVoz => !esSinVoz(t));
@@ -78,10 +85,17 @@ export function comparar(plan: Plan, referencia: Referencia, paso = 0.05): Compa
   }
 
   const total = Math.max(1, muestras);
+  const cortesPlan = cortesEnLaVoz(plan.tramos);
+  const cortesReferencia = cortesEnLaVoz(referencia.tramos);
+  const coinciden = parejas(cortesPlan, cortesReferencia);
+  const totalCortes = cortesPlan.length + cortesReferencia.length;
   return {
     mismoContenido: contenido / total,
     mismoClip: clip / total,
     mismoMomento: momento / total,
+    cortes: totalCortes === 0 ? 1 : (2 * coinciden) / totalCortes,
+    totalCortes: { plan: cortesPlan.length, referencia: cortesReferencia.length },
+    cortesQueCoinciden: coinciden,
     planos: { plan: vozPlan.length, referencia: vozReferencia.length },
     planoTipico: { plan: planoTipico(plan.tramos), referencia: planoTipico(referencia.tramos) },
     sinVoz: { plan: describirSinVoz(plan.tramos), referencia: describirSinVoz(referencia.tramos) },
@@ -89,6 +103,36 @@ export function comparar(plan: Plan, referencia: Referencia, paso = 0.05): Compa
     logo: { plan: plan.tramos.some((t) => t.logo), referencia: referencia.tramos.some((t) => t.logo) },
     diferencias: diferencias.filter((d) => d.hasta - d.desde >= DIFERENCIA_MINIMA),
   };
+}
+
+/** Segundos de la voz en que se pasa a otra toma: otro clip, o un salto dentro del mismo clip. */
+export function cortesEnLaVoz(tramos: Tramo[]): number[] {
+  const r: number[] = [];
+  let voz = 0;
+  for (const [i, t] of tramos.entries()) {
+    if (i > 0 && !sigueLaToma(tramos[i - 1], t)) r.push(esSinVoz(t) ? voz : t.desde);
+    if (!esSinVoz(t)) voz = t.hasta;
+  }
+  return r;
+}
+
+function sigueLaToma(a: Tramo, b: Tramo): boolean {
+  const termina = a.arrancaEn + duracionEnPantalla(a) * (a.velocidad ?? 1);
+  return a.clip === b.clip && Math.abs(b.arrancaEn - termina) < MISMA_TOMA;
+}
+
+/** a y b en orden. Recorrerlas juntas y emparejar el primero que puede da la mayor cantidad de parejas. */
+function parejas(a: number[], b: number[]): number {
+  let n = 0;
+  for (let i = 0, j = 0; i < a.length && j < b.length; ) {
+    if (Math.abs(a[i] - b[j]) < CORTE_CERCA) {
+      n++;
+      i++;
+      j++;
+    } else if (a[i] < b[j]) i++;
+    else j++;
+  }
+  return n;
 }
 
 /** "al principio: 1.0 s de IMG_0672", "en el segundo 2.7 de la voz: 1.8 s de IMG_0638 con su audio", ... */

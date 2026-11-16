@@ -1,0 +1,10 @@
+{
+  "pancho-y-coca": {
+    "carpeta": "~/reels/pancho-y-coca-prueba",
+    "plan": "pancho-y-coca/plan-real.json"
+  },
+  "casa-giro": {
+    "carpeta": "~/reels/hola-luli",
+    "plan": "casa-giro/plan-real.json"
+  }
+}
