@@ -33,7 +33,7 @@ Se abre sola en el navegador (http://localhost:4321). Ahí creás un reel, subí
 
 1. **Material**: arrastrás los videos, la voz en off y, si querés, música, logo y guion.
 2. **Preparar**: la app saca los silencios, escribe lo que decís y mira cada video.
-3. **Cortes**: Claude arma los cortes y los ves como un storyboard. Podés cambiar cada plano a mano (video, momento, encuadre, velocidad, texto grande, logo, partirlo o sacarlo) o pedirle cambios a Claude con tus palabras. Todo se puede deshacer.
+3. **Cortes**: Claude arma los cortes y los ves como un storyboard. Para cambiar algo, se lo pedís a Claude con tus palabras. Todo se puede deshacer. Los retoques plano por plano se hacen en Edits.
 4. **Tu reel**: lo armás en Edits (la app de Instagram para Mac) para retocarlo y publicarlo desde ahí, o lo creás acá como video, lo mirás y lo descargás.
 
 - Los reels se guardan en `~/reels/` (se cambia en `APP` de `src/config.ts`).
@@ -99,7 +99,7 @@ Los tramos van en el orden en que se ven:
 ```
 
 - `ritmo` (opcional): `"rapido"`, `"normal"` o `"tranquilo"`. Si los planos no siguen ese ritmo, `validar` te avisa.
-- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Subtítulos" de la pantalla de cortes.
+- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Con subtítulos" de la tarjeta de Edits, en "Tu reel".
 - Tramo **con voz**: `desde` / `hasta` son segundos sobre la voz limpia (los que aparecen en `edit/transcripcion.md`). Los tramos con voz tienen que ir pegados entre sí y cubrir toda la voz.
 - Tramo **sin voz**: `duracion` en segundos. La voz en off espera mientras tanto; solo suena la música, o el clip si tiene `audioDelClip`.
 - `clip`: nombre del archivo dentro de `clips/`.
