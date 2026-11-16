@@ -68,7 +68,8 @@ export async function reconstruir(p: Proyecto, archivoPublicado: string | undefi
       : pl.segundo
         ? `  (después: ${pl.segundo.clip} ${pl.segundo.parecido.toFixed(2)})`
         : "";
-    const revisar = pl.revisar ? `  revisalo a mano (parecido en las puntas: ${pl.puntas.map((p) => p.toFixed(2)).join(" y ")})` : "";
+    const falta = pl.faltaClip > 0 ? `, le faltan ${segundos(pl.faltaClip)} s de clip` : "";
+    const revisar = pl.revisar ? `  revisalo a mano (parecido en las puntas: ${pl.puntas.map((p) => p.toFixed(2)).join(" y ")}${falta})` : "";
     log(
       `${String(i + 1).padStart(2)}  ${segundos(pl.desde)} - ${segundos(pl.hasta)}  ${pl.clip} desde ${segundos(pl.arrancaEn)} s` +
         `${velocidad}  parecido ${pl.parecido.toFixed(2)}${otros}${revisar}`,
@@ -90,6 +91,7 @@ export async function reconstruir(p: Proyecto, archivoPublicado: string | undefi
       velocidad: pl.velocidad,
       parecido: r(pl.parecido),
       puntas: pl.puntas.map(r),
+      faltaClip: r(pl.faltaClip),
       revisar: pl.revisar,
       segundo: pl.segundo && { clip: pl.segundo.clip, parecido: r(pl.segundo.parecido) },
       alternativas: pl.alternativas,

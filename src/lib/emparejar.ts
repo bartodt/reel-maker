@@ -36,7 +36,9 @@ export interface Emparejado {
   parecido: number;
   /** Parecido de las puntas del plano con el clip, a esa velocidad. Bajo si la velocidad cambia adentro del plano. */
   puntas: [number, number];
-  /** Parecido bajo o puntas que no siguen la velocidad: hay que mirarlo a mano */
+  /** Segundos que el plano necesita antes del principio o después del final del clip, o 0 si entra */
+  faltaClip: number;
+  /** Parecido bajo, puntas que no siguen la velocidad o falta clip: hay que mirarlo a mano */
   revisar: boolean;
   /** El mejor de los otros clips */
   segundo?: { clip: string; parecido: number };
@@ -61,6 +63,8 @@ const EMPATE_CLIP = 0.1;
 // Debajo de esto, el plano o sus puntas no coinciden bien con el clip. En Casa Giro y Pancho y Coca, los planos que
 // coinciden en todo su largo dan 0,84 o más, y el que cambia de velocidad adentro da -0,34 al principio.
 const DUDOSO = 0.8;
+// Lo que puede sobresalir del clip por redondear el momento y la velocidad
+const MARGEN_CLIP = 0.1;
 
 export function firma(gris: Uint8Array): Firma {
   let media = 0;
@@ -105,14 +109,19 @@ export function emparejar(plano: PlanoPublicado, clips: ClipLeido[], fps: number
     return mejor.firmas[Math.min(mejor.firmas.length - 1, Math.max(0, i))];
   };
   const puntas = PARTES_DEL_PLANO.puntas.map((parte, i) => parecido(plano.puntas[i], enElClip(parte))) as [number, number];
+  const arranca = medio - (plano.duracion / 2) * mejor.velocidad;
+  const termina = medio + (plano.duracion / 2) * mejor.velocidad;
+  const sobresale = Math.max(0, -arranca) + Math.max(0, termina - mejor.firmas.length / fps);
+  const faltaClip = sobresale > MARGEN_CLIP ? sobresale : 0;
   return {
     clip: mejor.clip,
-    arrancaEn: Math.max(0, medio - (plano.duracion / 2) * mejor.velocidad),
+    arrancaEn: Math.max(0, arranca),
     medio,
     velocidad: mejor.velocidad,
     parecido: mejor.parecido,
     puntas,
-    revisar: Math.min(mejor.parecido, ...puntas) < DUDOSO,
+    faltaClip,
+    revisar: Math.min(mejor.parecido, ...puntas) < DUDOSO || faltaClip > 0,
     segundo: segundo && { clip: segundo.clip, parecido: segundo.parecido },
     alternativas: candidatos.slice(1).filter((c) => mejor.delMedio - c.delMedio <= EMPATE_CLIP).map((c) => c.clip),
   };
