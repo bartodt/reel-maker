@@ -58,10 +58,11 @@ Medido contra las palabras de `transcripcion.json` (segundos de la voz limpia):
 
 ## Alternativas
 
-Otros clips que muestran lo mismo, anotados en `plan-real.json`:
+Otros clips que muestran lo mismo, anotados en `plan-real.json`. Cada una la propuso `reconstruir` o se ve en `alternativas.jpg`: el cuadro del final, el del clip elegido y el cuadro más parecido del otro clip, con su parecido.
 
 - Plano 8: IMG_6401 empieza en la misma cocina, con la misma mesada y ventana (`reconstruir` la da con 0,95 de parecido contra 0,98).
-- Plano 11: IMG_6392 e IMG_6393 recorren la misma estación de café.
-- Plano 17: IMG_6416 muestra el mismo frente desde la calle (0,85 contra 0,94).
-- Planos 5 y 12: IMG_6388 e IMG_6387 son la misma oficina, cada una vale por la otra.
-- Planos 6 y 7: IMG_6376 e IMG_6377 son el mismo salón, cada una vale por la otra.
+- Plano 17: IMG_6416 muestra el mismo frente desde la calle (`reconstruir` la da con 0,85 contra 0,94).
+- Plano 11: IMG_6392 (0,79) e IMG_6393 (0,76) muestran la misma estación de café: los mismos termos, frascos, azucarera rosa y cuadro de "A cup of coffee", con otro encuadre. `reconstruir` no las propone porque pide que el otro clip quede a 0,1 o menos del elegido.
+- Planos 5 y 12: IMG_6388 e IMG_6387 son la misma oficina, con el mismo escritorio de vidrio, la silla y los dos cuadros. Una la muestra de cerca y la otra desde la puerta (0,67 y 0,66).
+
+Los planos 6 y 7 no tienen alternativa. Son el mismo salón, pero el 6 mira hacia el espejo rojo y el 7 hacia la tele, y ningún cuadro de un clip se parece al del otro plano (0,04 y 0,22).

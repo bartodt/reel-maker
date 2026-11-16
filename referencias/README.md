@@ -20,6 +20,7 @@ Lo que no está en el repo:
 ## Casa Giro (`casa-giro/`)
 
 `edicion.md`, `storyboard.jpg` y `plan-real.json`, como en Pancho y Coca. Acá `storyboard.jpg` muestra cada plano del final al lado del clip que se encontró. El guion está en la carpeta del reel.
+`alternativas.jpg` muestra por qué valen las alternativas que no propuso `reconstruir` (ver `edicion.md`). `logo.png` es el logo de Somos San Isidro que aparece en el último plano. La carpeta del reel no lo tiene, y sin él `npm run validar` da error por el `"logo"` del plan.
 
 Lo que no está en el repo:
 - La carpeta del reel: `~/reels/hola-luli`, con los 52 crudos en `clips/`, la voz y lo que ya sacó la herramienta en `edit/`.
@@ -33,20 +34,29 @@ Lo que no está en el repo:
    - `reconstruccion.json`: por plano, el clip, desde qué segundo, la velocidad, el parecido (de 0 a 1), el clip que le sigue, las alternativas y si hay que revisarlo.
    - `storyboard.jpg`: el final a la izquierda y el clip elegido a la derecha, de a un par por plano.
    - `plan-reconstruido.json`: si la voz de la carpeta es el audio del final, el borrador del plan sobre la voz limpia.
-3. Mirá el storyboard y revisá los planos que dicen "revisalo a mano": tienen parecido bajo, o sus puntas no siguen la velocidad del medio. Lo segundo pasa cuando la misma toma cambia de velocidad sin cortar (el balcón de Casa Giro). Ahí partí el tramo en dos. Si las dos partes se ven muy parecidas puede no marcarse, como en la caminata de Pancho y Coca.
-4. Copiá el borrador a `referencias/<reel>/plan-real.json` y sumale los textos grandes, el logo, las notas y las alternativas que veas. Escribí `edicion.md` con la misma tabla que las otras referencias.
+3. Mirá el storyboard y revisá los planos que dicen "revisalo a mano": tienen parecido bajo, necesitan más clip del que hay, o sus puntas no siguen la velocidad del medio. Lo segundo pasa cuando la misma toma cambia de velocidad sin cortar (el balcón de Casa Giro). Ahí partí el tramo en dos. Si las dos partes se ven muy parecidas puede no marcarse, como en la caminata de Pancho y Coca.
+4. Copiá el borrador a `referencias/<reel>/plan-real.json` y sumale los textos grandes, el logo y las notas. Las `alternativas` que propone `reconstruir` quedan. Sumá otra solo si un par de cuadros, el del final y el del otro clip, muestra lo mismo: guardalo en `referencias/<reel>/` y explicá en `edicion.md` por qué vale. Si no, `comparar` cuenta como acierto un clip que no muestra lo mismo. Escribí `edicion.md` con la misma tabla que las otras referencias.
+5. Si el plan usa el logo y la carpeta no lo tiene, guardalo en `referencias/<reel>/logo.png`.
 
 Tarda unos dos minutos con 52 clips en 4K: casi todo es leer los videos.
 
 ## Cómo correr una prueba
 
-1. Armá una carpeta nueva dentro de `~/reels/pancho-y-coca-prueba/` con un enlace `clips` a los crudos, `voz.wav` y, dentro de `edit/`, `voz-limpia.wav`, `voz-cortes.json`, `transcripcion.json` y `transcripcion.md` (copiados de `~/reels/pancho-y-coca-prueba/edit/`).
-2. `npm run inventario -- <carpeta>`.
-3. Pedile a un agente nuevo, que no haya visto la edición real, que arme el plan con la skill. Sin leer `referencias/`, sin ver el video final y con ritmo `"tranquilo"`, que es el que eligió el usuario.
-   Ojo: `estilo.md` salió en parte de este mismo reel. Para que la prueba sea justa, dale una copia sin los ejemplos de Pancho y Coca (hay una en `~/reels/pancho-y-coca-prueba/b-con-estilo/estilo.md`).
-4. `npm run comparar -- <carpeta> referencias/pancho-y-coca/plan-real.json`.
-5. Anotá el resultado en `pancho-y-coca/prueba-N.md`.
+Cada referencia sale de una carpeta que ya tiene la voz limpia y la transcripción, así que no hace falta volver a llamar a ElevenLabs:
 
-Para Casa Giro es igual, con la carpeta `~/reels/hola-luli` y `referencias/casa-giro/plan-real.json`.
+| | Pancho y Coca | Casa Giro |
+|---|---|---|
+| Carpeta original | `~/reels/pancho-y-coca-prueba` | `~/reels/hola-luli` |
+| Voz | `voz.wav` | `voz.mpeg` |
+| Logo | `~/reels/pancho-y-coca-prueba/referencia/logo.png` (dice "LOGO") | `referencias/casa-giro/logo.png` |
+| Plan real | `referencias/pancho-y-coca/plan-real.json` | `referencias/casa-giro/plan-real.json` |
+
+1. Armá una carpeta nueva, fuera de la original, con un enlace `clips` a los `clips` de la original, una copia de la voz y del logo (como `logo.png`) y, dentro de `edit/`, copias de `voz-limpia.wav`, `voz-cortes.json`, `transcripcion.json` y `transcripcion.md` del `edit/` de la original. No escribas nada en la carpeta original.
+2. Para ver que la referencia está bien armada, copiá el plan real a `edit/plan.json` y corré `npm run validar -- <carpeta>`. Tiene que decir "Plan OK", sin errores.
+3. `npm run inventario -- <carpeta>`.
+4. Pedile a un agente nuevo, que no haya visto la edición real, que arme el plan con la skill. Sin leer `referencias/`, sin ver el video final y con ritmo `"tranquilo"`, que es el que eligió el usuario.
+   Ojo: `estilo.md` salió en parte de Pancho y Coca. Para que la prueba sea justa, dale una copia sin sus ejemplos (hay una en `~/reels/pancho-y-coca-prueba/b-con-estilo/estilo.md`).
+5. `npm run comparar -- <carpeta> <plan real>`.
+6. Anotá el resultado en `referencias/<reel>/prueba-N.md`.
 
 Como hay dos reels de referencia con crudos, los números sirven para ver si un cambio ayuda, no como nota final.
