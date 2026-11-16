@@ -12,7 +12,7 @@
     { "desde": 20.203, "hasta": 21.603, "clip": "IMG_6400.mov", "arrancaEn": 0.017, "velocidad": 1.5, "alternativas": ["IMG_6401.mov"], "texto": "TALLERES Y\nCAPACITACIONES\n14 personas", "nota": "La cocina: además cuenta con cocina" },
     { "desde": 21.603, "hasta": 22.403, "clip": "IMG_6406.mov", "arrancaEn": 0, "texto": "TALLERES Y\nCAPACITACIONES\n14 personas", "nota": "Hornallas y pileta de cerca: vajilla" },
     { "desde": 22.403, "hasta": 24.286, "clip": "IMG_6395.mov", "arrancaEn": 0.005, "velocidad": 1.8, "nota": "La tele: tele para presentaciones" },
-    { "desde": 24.286, "hasta": 28.936, "clip": "IMG_6391.mov", "arrancaEn": 0.017, "velocidad": 2, "alternativas": ["IMG_6392.mov"], "texto": "DESDE $15.000 LA\nHORA", "nota": "Estación de café: café, té y mate sin costo adicional" },
+    { "desde": 24.286, "hasta": 28.936, "clip": "IMG_6391.mov", "arrancaEn": 0.017, "velocidad": 2, "alternativas": ["IMG_6392.mov", "IMG_6393.mov"], "texto": "DESDE $15.000 LA\nHORA", "nota": "Estación de café: café, té y mate sin costo adicional" },
     { "desde": 28.936, "hasta": 31.353, "clip": "IMG_6387.mov", "arrancaEn": 5.158, "alternativas": ["IMG_6388.mov"], "texto": "DESDE $15.000 LA\nHORA", "nota": "Oficina con escritorio de vidrio: podés reservar por una hora o por módulos" },
     { "desde": 31.353, "hasta": 32.753, "clip": "IMG_6383.mov", "arrancaEn": 0, "nota": "Consultorio con escritorio blanco: según lo que necesites" },
     { "desde": 32.753, "hasta": 37.553, "clip": "IMG_6401.mov", "arrancaEn": 2.04, "velocidad": 2.9, "nota": "Sale por la puerta de la cocina al patio interno" },

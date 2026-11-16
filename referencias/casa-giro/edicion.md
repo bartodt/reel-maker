@@ -44,6 +44,12 @@ Medido contra las palabras de `transcripcion.json` (segundos de la voz limpia):
 - 6 cortes siguen una enumeración, una cosa por plano: "organizar reuniones", "dar talleres", "grupos de hasta catorce", "vajilla", "tele para presentaciones" y "té y mate".
 - 6 cortes caen en medio de una frase, sobre una palabra: "períodos", "según", "No solo esto", "si tenés", "animate" y "@casagiro".
 
+## Planos que `reconstruir` marca para revisar
+
+- Plano 1: la selfie se mueve mucho y el texto le tapa la cara, así que el parecido baja. La velocidad sale del audio del clip: la frase dura 2,1 s en el clip y 1,94 s en el final, o sea 1,1x.
+- Plano 2: cambia de velocidad sin cortar (ver Números).
+- Plano 18: la velocidad está bien. Las puntas bajan porque al final aparece el logo encima.
+
 ## Lo que no hay en este plan
 
 - `plan-real.json` está sobre la voz limpia, que acá es el audio del final (`voz.mpeg`). Limpiar sacó 0,26 s de silencio al principio y 0,38 s al final, así que el plan dura 43,9 s y no tiene esos pedazos.
@@ -55,7 +61,7 @@ Medido contra las palabras de `transcripcion.json` (segundos de la voz limpia):
 Otros clips que muestran lo mismo, anotados en `plan-real.json`:
 
 - Plano 8: IMG_6401 empieza en la misma cocina, con la misma mesada y ventana (`reconstruir` la da con 0,95 de parecido contra 0,98).
-- Plano 11: IMG_6392 recorre la misma estación de café.
+- Plano 11: IMG_6392 e IMG_6393 recorren la misma estación de café.
 - Plano 17: IMG_6416 muestra el mismo frente desde la calle (0,85 contra 0,94).
 - Planos 5 y 12: IMG_6388 e IMG_6387 son la misma oficina, cada una vale por la otra.
 - Planos 6 y 7: IMG_6376 e IMG_6377 son el mismo salón, cada una vale por la otra.
