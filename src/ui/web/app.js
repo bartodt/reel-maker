@@ -287,7 +287,7 @@ function dibujarReel() {
 function bannerDeTrabajo(indice) {
   const t = actual.trabajo;
   if (!t || t.estado !== "corriendo") return null;
-  const paso = { preparar: "preparar", claude: "cortes", render: "reel" }[t.tipo];
+  const paso = { preparar: "preparar", claude: "cortes", render: "reel", edits: "reel" }[t.tipo];
   // El paso del trabajo ya lo muestra (y el de Claude también se ve en "Tu reel")
   if (paso === PASOS[indice].id || (t.tipo === "claude" && PASOS[indice].id === "reel")) return null;
   const titulo = t.etapas.find((e) => e.estado === "corriendo")?.titulo ?? "Trabajando";

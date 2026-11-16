@@ -253,6 +253,9 @@ function editorDePlan(ctx, claude) {
       h(
         "div",
         { class: "herramientas__botones" },
+        interruptor("Subtítulos", plan.subtitulos !== false, (v) =>
+          ctx.pedir("/plan", { metodo: "POST", cuerpo: { op: "subtitulos", activos: v } }).catch(mostrarError),
+        ),
         boton("Deshacer", {
           icono: "deshacer",
           clase: "boton--secundario",

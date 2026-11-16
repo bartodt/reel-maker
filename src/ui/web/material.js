@@ -102,22 +102,32 @@ function seccionVideos(ctx) {
             h(
               "figure",
               { class: "clip", title: c.archivo },
-              h("div", { class: "clip__imagen" }, imagen(c.miniatura), h("span", { class: "clip__duracion" }, seg(c.duracion))),
+              h(
+                "div",
+                { class: "clip__imagen" },
+                imagen(c.miniatura),
+                h("span", { class: "clip__duracion" }, seg(c.duracion)),
+                boton(null, { icono: "basura", clase: "clip__quitar", title: "Sacar este video", "aria-label": `Sacar ${c.archivo}`, onclick: () => quitarVideo(ctx, c.archivo) }),
+              ),
               h("figcaption", null, c.archivo),
             ),
           ),
         )
       : null,
     clips.length
-      ? h(
-          "p",
-          { class: "suave chico" },
-          "Tip: si el nombre del video dice lo que muestra (por ejemplo “cafe-servido.mov”), Claude elige mejor. Para sacar un video, borralo de la carpeta ",
-          h("code", null, "clips"),
-          " (botón “Abrir carpeta”, arriba).",
-        )
+      ? h("p", { class: "suave chico" }, "Tip: si el nombre del video dice lo que muestra (por ejemplo “cafe-servido.mov”), Claude elige mejor.")
       : null,
   );
+}
+
+async function quitarVideo(ctx, archivo) {
+  if (!(await confirmar(`¿Sacar “${archivo}”?`, "Deja de estar en este reel. No se borra: queda guardado en la carpeta del reel, en edit/quitados.", { si: "Sacarlo", peligro: true }))) return;
+  try {
+    await api(`/reels/${encodeURIComponent(ctx.reel.nombre)}/quitar-clip`, { metodo: "POST", cuerpo: { archivo } });
+    await ctx.recargar();
+  } catch (e) {
+    mostrarError(e);
+  }
 }
 
 /** Para la voz, la música y el logo: un solo archivo, que se puede cambiar. */

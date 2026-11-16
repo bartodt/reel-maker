@@ -1,7 +1,7 @@
 // Paso 4: crear el reel, verlo y descargarlo.
 import { boton, h, haceCuanto, icono, mostrarError, plural, reloj } from "./dom.js";
 import { burbujaDeClaude, cajaDePedido, panelClaude } from "./cortes.js";
-import { bloqueado, encabezado } from "./preparar.js";
+import { bloqueado, encabezado, tarjetaClave } from "./preparar.js";
 import { errorDeTrabajo, panelVivo, progreso } from "./trabajo.js";
 
 export function vistaReel(ctx) {
@@ -10,7 +10,14 @@ export function vistaReel(ctx) {
   const fallo = trabajo?.tipo === "render" && trabajo.estado === "error" ? trabajo : null;
   const claude = trabajo?.tipo === "claude" ? trabajo : null;
   const crear = () => ctx.pedir("/render", { metodo: "POST", cuerpo: {} }).catch(mostrarError);
+  const enEdits = trabajo?.tipo === "edits" && trabajo.estado === "corriendo";
 
+  if (enEdits) {
+    return [
+      encabezado("Armando tu reel en Edits", "Dejá Edits abierto. Vas a ver cómo se arma solo."),
+      panelVivo("", (t) => progreso(t, { nota: "Suele tardar un par de minutos." }), trabajo),
+    ];
+  }
   if (creando) {
     return [
       encabezado("Creando tu reel", "Podés seguir usando la compu mientras tanto."),
@@ -26,11 +33,12 @@ export function vistaReel(ctx) {
   if (!final) {
     const m = reel.material;
     return [
-      encabezado("Tu reel", planOk ? "Está todo listo para crearlo." : null),
+      encabezado("Tu reel", planOk ? "Está todo listo." : null),
+      tarjetaEdits(ctx, planOk),
       fallo ? errorDeTrabajo(fallo, { reintentar: crear }) : null,
       h(
         "section",
-        { class: "tarjeta tarjeta--destacada centro" },
+        { class: "tarjeta centro" },
         h(
           "div",
           { class: "resumen resumen--centro" },
@@ -41,7 +49,7 @@ export function vistaReel(ctx) {
           reel.plan.tramos.some((t) => t.logo) ? h("span", { class: "chip" }, icono("logo"), "Logo") : null,
         ),
         planOk
-          ? boton("Crear mi reel", { icono: "play", clase: "boton--primario boton--enorme", onclick: crear })
+          ? h("div", null, h("p", { class: "suave" }, "¿Lo querés ver antes acá, como video?"), boton("Crear el video", { icono: "play", clase: "boton--secundario", onclick: crear }))
           : h("div", null, h("p", { class: "suave" }, "Antes hay que arreglar algo en los cortes."), boton("Ir a Cortes", { icono: "atras", clase: "boton--secundario", onclick: () => ctx.ir("cortes") })),
       ),
     ];
@@ -71,6 +79,7 @@ export function vistaReel(ctx) {
           )
         : null,
       fallo ? errorDeTrabajo(fallo, { reintentar: crear }) : null,
+      tarjetaEdits(ctx, planOk),
       h(
         "div",
         { class: "botones" },
@@ -82,5 +91,27 @@ export function vistaReel(ctx) {
       pedido,
       h("p", { class: "suave chico" }, "Después de un cambio, volvé a crear el reel para verlo. También podés tocar cada plano a mano en ", h("a", { href: `#/reel/${encodeURIComponent(reel.nombre)}/cortes` }, "Cortes"), "."),
     ),
+  );
+}
+
+/** Terminar el reel en Edits: la app lo arma ahí y la creadora lo retoca y lo publica desde Edits. */
+function tarjetaEdits(ctx, planOk) {
+  const { reel, trabajo, inicio } = ctx;
+  if (!inicio.claveEdits) return tarjetaClave(ctx, "edits");
+  const armar = () => ctx.pedir("/edits", { metodo: "POST", cuerpo: {} }).catch(mostrarError);
+  const fallo = trabajo?.tipo === "edits" && trabajo.estado === "error" ? trabajo : null;
+  const ya = reel.edits;
+  return h(
+    "section",
+    { class: "tarjeta tarjeta--destacada centro" },
+    h("h2", null, ya ? "Tu reel está en Edits" : "Terminalo en Edits"),
+    ya
+      ? h("p", { class: "suave" }, `Abrí Edits: está como "${ya.titulo}". Lo armaste ${haceCuanto(ya.modificado)}.`)
+      : h("p", { class: "suave" }, "La app lo arma en Edits con tus cortes, tu voz, los textos y los subtítulos. Después lo retocás y lo publicás desde ahí."),
+    ya?.cortesCambiados ? h("p", null, h("strong", null, "Cambiaste los cortes después."), " Si lo armás de nuevo, se crea otro proyecto en Edits y el anterior queda como está.") : null,
+    fallo ? errorDeTrabajo(fallo, { reintentar: armar }) : null,
+    planOk
+      ? boton(ya ? "Armarlo de nuevo en Edits" : "Armarlo en Edits", { icono: "play", clase: ya && !ya.cortesCambiados ? "boton--secundario" : "boton--primario boton--enorme", onclick: armar })
+      : h("div", null, h("p", { class: "suave" }, "Antes hay que arreglar algo en los cortes."), boton("Ir a Cortes", { icono: "atras", clase: "boton--secundario", onclick: () => ctx.ir("cortes") })),
   );
 }

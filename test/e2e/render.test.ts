@@ -33,13 +33,14 @@ for (const conMusica of [false, true]) {
     assert.equal(final.fps, VIDEO.fps);
     assert.ok(final.tieneAudio);
     assert.ok(Math.abs(final.duracion - DURACION_VOZ) < 0.1, `duró ${final.duracion} s`);
-    assert.ok(existsSync(`${p.edit}/subtitulos.ass`));
+    assert.ok(readFileSync(`${p.edit}/subtitulos.ass`, "utf8").includes(",Reel,"), "tenía que tener subtítulos");
   });
 }
 
-test("render con gancho, alguien del clip hablando, velocidad, texto, imagen congelada y logo", async () => {
+test("render con gancho, alguien del clip hablando, velocidad, texto, imagen congelada, logo y sin subtítulos", async () => {
   const p = await crearProyectoDePrueba();
   escribirPlan(p.raiz, {
+    subtitulos: false,
     tramos: [
       { duracion: 1, clip: "vertical.mov", arrancaEn: 0, texto: "HOLA\nPRUEBA" },
       { desde: 0, hasta: 2.5, clip: "horizontal.mp4", arrancaEn: 0, velocidad: 2 },
@@ -61,4 +62,5 @@ test("render con gancho, alguien del clip hablando, velocidad, texto, imagen con
 
   const ass = readFileSync(`${p.edit}/subtitulos.ass`, "utf8");
   assert.ok(ass.includes(",Titulo,") && ass.includes("HOLA\\NPRUEBA"));
+  assert.ok(!ass.includes(",Reel,"), "no tenía que tener subtítulos");
 });

@@ -73,6 +73,10 @@ Hay dos tipos de tramo:
 - **Con voz** (`desde` y `hasta`): segundos sobre la VOZ LIMPIA (los de `transcripcion.md`). Mientras dura, suena la voz en off. Los tramos con voz van pegados entre sí: cada uno empieza donde termina el anterior con voz. El primero en 0 y el último en la duración total de la voz.
 - **Sin voz** (`duracion`): se mete entre dos tramos con voz y la voz en off espera. Sirve para el gancho (antes del primer tramo con voz), el cierre (después del último) o para que hable alguien del clip (con `"audioDelClip": true`). Sin `audioDelClip` solo suena la música.
 
+Campos del plan (afuera de `tramos`):
+- `ritmo` (opcional): `"rapido"`, `"normal"` o `"tranquilo"`.
+- `subtitulos` (opcional): `false` saca los subtítulos de este reel (los textos grandes siguen). Si no está, salen con subtítulos. Si el usuario pide un reel sin subtítulos, poné `"subtitulos": false`. Si rearmás un plan que ya tenía `"subtitulos": false`, dejalo.
+
 Campos de cada tramo:
 - `clip` y `arrancaEn`: qué clip y desde qué segundo se toma la imagen. Tiene que alcanzar: `arrancaEn + duración del tramo × velocidad` no puede pasar la duración del clip.
 - `encuadre` (opcional): hacia dónde recortar cuando el clip no es vertical. En clips horizontales: `"izquierda"`, `"centro"` o `"derecha"`; en clips más altos que el reel: `"arriba"`, `"centro"` o `"abajo"`. También acepta un número de 0 a 1. Si no se pone, recorta al centro.
@@ -100,9 +104,17 @@ Mostrale al usuario el plan en una tabla corta (tiempo, clip, qué se dice, y si
 Genera `edit/final.mp4`: 1080x1920, 30 fps, voz limpia, audio de los clips que lo usan, música con ducking si hay `musica.*`, subtítulos, textos grandes y logo.
 Después sacá 3 o 4 cuadros del final con ffmpeg (por ejemplo `ffmpeg -ss 2 -i edit/final.mp4 -frames:v 1 edit/revision-1.jpg`) y miralos: revisá que el encuadre no corte lo importante y que los subtítulos y los textos se lean. Contale al usuario lo que viste.
 
+### 7. Armarlo en Edits (opcional)
+Si el usuario quiere terminarlo en Edits para Mac (la app de Instagram), en vez del render o además:
+`npm run edits -- <carpeta>`
+Crea un proyecto nuevo en Edits con el nombre de la carpeta: planos, velocidad, voz, audio de los clips, música, textos grandes, logo y subtítulos. Los subtítulos los escribe Edits y se corrigen con `transcripcion.json`; los de las partes donde habla alguien del clip se borran.
+Necesita Edits abierto en la pantalla de inicio, con el servidor de automatización prendido (Ajustes › Automation) y su clave en `EDITS_TOKEN` del `.env`. El material se copia a `~/Movies/reel-maker/<carpeta>/`, porque Edits solo puede abrir archivos de Películas.
+Todavía no respeta `encuadre` en clips horizontales: Edits los encuadra a su manera.
+
 ## Cambios después del primer render
 
 - "Cambiá el clip del segundo X" → editá solo ese tramo en `plan.json`, validá y volvé a renderizar. No repitas los pasos 1 a 3.
-- Subtítulos, textos, logo, música o tamaños → están en `src/config.ts`.
+- "Sacá los subtítulos" o "poné los subtítulos" → `"subtitulos": false` en `plan.json` (o sacá el campo para que vuelvan).
+- Estilo de subtítulos, textos, logo, música o tamaños → están en `src/config.ts`.
 - Si el usuario cambia la voz, hay que empezar desde el paso 1.
 - Si el usuario corrige algo que tiene que ver con su forma de editar (no con este reel en particular), anotalo en `estilo.md`.

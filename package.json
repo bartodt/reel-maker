@@ -12,6 +12,7 @@
     "inventario": "tsx src/cli.ts inventario",
     "validar": "tsx src/cli.ts validar",
     "render": "tsx src/cli.ts render",
+    "edits": "tsx src/cli.ts edits",
     "comparar": "tsx src/cli.ts comparar",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/unit/*.test.ts",

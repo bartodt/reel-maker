@@ -22,6 +22,7 @@ export async function render(p: Proyecto, log = console.log) {
     throw new ErrorReel([...r.errores.map((e) => `Error: ${e}`), "Arreglá el plan y volvé a correr el render."].join("\n"));
   }
   const tramos = r.plan!.tramos;
+  const conSubtitulos = r.plan!.subtitulos ?? SUBTITULOS.activados;
   const { piezas, duracion } = armarLinea(tramos);
   const { ancho, alto, fps, crf } = VIDEO;
 
@@ -71,8 +72,9 @@ export async function render(p: Proyecto, log = console.log) {
 
   // 3. Subtítulos y textos grandes, con los tiempos pasados de la voz al reel
   const palabras = existsSync(p.transcripcion) ? leerJson<{ words: Palabra[] }>(p.transcripcion).words : [];
-  if (SUBTITULOS.activados && palabras.length === 0) console.warn("Aviso: no hay transcripción, el reel sale sin subtítulos.");
-  const subtitulos = (SUBTITULOS.activados ? palabras : [])
+  if (conSubtitulos && palabras.length === 0) console.warn("Aviso: no hay transcripción, el reel sale sin subtítulos.");
+  if (!conSubtitulos) log("Sin subtítulos (así lo pide el plan)");
+  const subtitulos = (conSubtitulos ? palabras : [])
     .filter((w) => w.type === "word")
     .map((w) => {
       const start = vozAReel(w.start, tramos);

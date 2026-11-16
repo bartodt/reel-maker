@@ -43,6 +43,8 @@ export type Ritmo = keyof typeof RITMO;
 export interface Plan {
   /** Qué tan seguido se corta. Si no está, no se revisa. */
   ritmo?: Ritmo;
+  /** false = el reel sale sin subtítulos (los textos grandes siguen). Si no está, se usa SUBTITULOS.activados de config. */
+  subtitulos?: boolean;
   tramos: Tramo[];
 }
 
@@ -82,6 +84,9 @@ export async function validarPlan(p: Proyecto) {
   }
   if (plan.ritmo !== undefined && !(plan.ritmo in RITMO)) {
     errores.push(`"ritmo" tiene que ser "tranquilo", "normal" o "rapido".`);
+  }
+  if (plan.subtitulos !== undefined && typeof plan.subtitulos !== "boolean") {
+    errores.push(`"subtitulos" tiene que ser true o false.`);
   }
 
   const clips = new Map<string, InfoMedio>();

@@ -1052,6 +1052,33 @@ button {
   border-radius: 999px;
 }
 
+.clip__quitar {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  padding: 6px;
+  border-radius: 999px;
+  background: rgba(0, 0, 0, 0.62);
+  color: white;
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.clip:hover .clip__quitar,
+.clip__quitar:focus-visible {
+  opacity: 1;
+}
+
+.clip__quitar:hover {
+  background: rgba(200, 30, 60, 0.9);
+}
+
+@media (hover: none) {
+  .clip__quitar {
+    opacity: 1;
+  }
+}
+
 .clip figcaption {
   font-size: 12.5px;
   margin-top: 6px;
@@ -1554,6 +1581,8 @@ audio {
 
 .herramientas__botones {
   display: flex;
+  flex-wrap: wrap;
+  align-items: center;
   gap: 8px;
 }
 

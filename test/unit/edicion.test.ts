@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { test } from "node:test";
-import { aplicarEdicion, cambiarTramo, moverCorte, partirTramo, quitarTramo } from "../../src/lib/edicion.js";
+import { aplicarEdicion, cambiarTramo, moverCorte, partirTramo, ponerSubtitulos, quitarTramo } from "../../src/lib/edicion.js";
 import { ErrorReel } from "../../src/lib/errores.js";
 import type { Plan } from "../../src/lib/plan.js";
 
@@ -106,4 +106,14 @@ test("aplicarEdicion revisa lo que llega de la app", () => {
   assert.throws(() => aplicarEdicion(PLAN, { op: "borrar todo", indice: 1 }), ErrorReel);
   assert.throws(() => aplicarEdicion(PLAN, { op: "corte", indice: 1 }), ErrorReel);
   assert.equal(aplicarEdicion(PLAN, { op: "quitar", indice: 3 }).tramos.length, 4);
+});
+
+test("apagar y prender los subtítulos del reel", () => {
+  const sin = aplicarEdicion(PLAN, { op: "subtitulos", activos: false });
+  assert.equal(sin.subtitulos, false);
+  assert.ok(!("subtitulos" in PLAN));
+  const con = ponerSubtitulos(sin, true);
+  assert.ok(!("subtitulos" in con));
+  assert.deepEqual(con.tramos, PLAN.tramos);
+  assert.throws(() => aplicarEdicion(PLAN, { op: "subtitulos", activos: "si" }), ErrorReel);
 });

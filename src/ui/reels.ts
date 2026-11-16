@@ -3,6 +3,7 @@ import { createWriteStream, existsSync, mkdirSync, readdirSync, readFileSync, re
 import type { IncomingMessage } from "node:http";
 import path from "node:path";
 import { pipeline } from "node:stream/promises";
+import { SUBTITULOS } from "../config.js";
 import { aplicarEdicion } from "../lib/edicion.js";
 import { ErrorReel } from "../lib/errores.js";
 import { etapaActual, pasosHechos, type Archivos } from "../lib/estado.js";
@@ -13,6 +14,7 @@ import { enParalelo } from "../lib/paralelo.js";
 import { esSinVoz, validarPlan, type Plan } from "../lib/plan.js";
 import { EXT_AUDIO, EXT_IMAGEN, EXT_VIDEO, abrirProyecto, guardarJson, leerJson, type Proyecto } from "../lib/proyecto.js";
 import { agruparFrases, type Palabra } from "../lib/transcripcion.js";
+import { archivoEdits } from "../pasos/edits.js";
 import type { ClipInventario } from "../pasos/inventario.js";
 
 const modificado = (ruta: string | undefined) => {
@@ -197,6 +199,7 @@ export async function leerReel(base: string, nombre: string) {
       }
       plan = {
         ritmo: leido.ritmo ?? null,
+        subtitulos: leido.subtitulos ?? SUBTITULOS.activados,
         tramos: tramos.map((t, i) => ({
           ...t,
           sinVoz: esSinVoz(t),
@@ -236,14 +239,24 @@ export async function leerReel(base: string, nombre: string) {
           modificado: modificado(p.final)!,
         }
       : null,
+    edits: enEdits(p),
   };
+}
+
+/** Si el reel ya se armó en Edits: con qué nombre, cuándo y si los cortes cambiaron después. */
+function enEdits(p: Proyecto) {
+  const archivo = archivoEdits(p);
+  if (!existsSync(archivo)) return null;
+  const { titulo, fecha } = leerJson<{ titulo: string; fecha: string }>(archivo);
+  const cuando = Date.parse(fecha);
+  return { titulo, modificado: cuando, cortesCambiados: (modificado(p.plan) ?? 0) > cuando + 1000 };
 }
 
 /** Una "huella" que cambia cuando cambia algo del reel. La app la consulta seguido para saber si tiene que actualizarse. */
 export function huella(base: string, nombre: string): string {
   const p = abrirReel(base, nombre);
   const clips = p.clips();
-  const fechas = [p.voz, p.vozLimpia, p.transcripcion, p.inventario, p.plan, p.final, p.musica, p.logo, path.join(p.raiz, "guion.md")].map(modificado);
+  const fechas = [p.voz, p.vozLimpia, p.transcripcion, p.inventario, p.plan, p.final, archivoEdits(p), p.musica, p.logo, path.join(p.raiz, "guion.md")].map(modificado);
   return [clips.join("|"), ...fechas].join(";");
 }
 
@@ -293,6 +306,31 @@ export async function guardarSubida(p: Proyecto, tipo: TipoArchivo, nombreOrigin
   }
   mover(temporal, destino);
   return path.basename(destino);
+}
+
+/**
+ * Saca un video del reel. No lo borra: lo pasa a edit/quitados/, por si lo quiere recuperar.
+ * Si algún plano lo usa, no lo saca (el plan quedaría roto): primero hay que cambiar o sacar esos planos.
+ */
+export function quitarClip(p: Proyecto, archivo: string) {
+  if (!p.clips().includes(archivo)) throw new ErrorReel(`No encontré el video "${archivo}".`);
+  if (existsSync(p.plan)) {
+    const planos = leerJson<Plan>(p.plan)
+      .tramos.map((t, i) => (t.clip === archivo ? i + 1 : 0))
+      .filter(Boolean);
+    if (planos.length) {
+      const cuales = planos.length === 1 ? `el plano ${planos[0]}` : `los planos ${planos.slice(0, -1).join(", ")} y ${planos.at(-1)}`;
+      throw new ErrorReel(`Este video se usa en ${cuales}. Cambialo o sacá ${planos.length === 1 ? "ese plano" : "esos planos"} en los cortes y después sacá el video.`);
+    }
+  }
+  const quitados = path.join(p.edit, "quitados");
+  mkdirSync(quitados, { recursive: true });
+  mover(path.join(p.carpetaClips, archivo), path.join(quitados, nombreLibre(archivo, (n) => existsSync(path.join(quitados, n)))));
+  if (existsSync(p.inventario)) {
+    const inventario = leerJson<ClipInventario[]>(p.inventario);
+    const resto = inventario.filter((c) => c.archivo !== archivo);
+    if (resto.length !== inventario.length) guardarJson(p.inventario, resto);
+  }
 }
 
 /** Mueve un archivo, aunque sea a otro disco (por ejemplo si clips/ es un enlace a otra carpeta). */

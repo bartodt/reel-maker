@@ -87,3 +87,31 @@ export const APP = {
   // Cuántas capturas se sacan a la vez para mostrar en la app
   capturasALaVez: 4,
 };
+
+export const EDITS = {
+  // Dónde escucha Edits para Mac cuando está activado su servidor de automatización (Ajustes › Automation)
+  url: "http://127.0.0.1:19501/mcp",
+  // Edits solo puede abrir archivos de la carpeta Películas: el material del reel se copia acá
+  carpeta: "~/Movies/reel-maker",
+  textos: {
+    tamano: 38,
+    // Posición del centro del texto: 0 a 1, de izquierda a derecha y de arriba a abajo
+    x: 0.5,
+    y: 0.25,
+    color: "#FFFFFF",
+    // Palabra por palabra (no va al ritmo de la voz). En textos más cortos que `minimoPalabraPorPalabra` segundos, `animacionCorta`.
+    animacion: "fligStepByStep",
+    animacionCorta: "fadeIn",
+    minimoPalabraPorPalabra: 1.5,
+  },
+  subtitulos: {
+    idioma: "es",
+    // Estilo de Edits. "Short Hard Cut" muestra de a una palabra.
+    estilo: "Short Hard Cut",
+    // Una palabra que cae entre dos subtítulos va al más cercano si está a menos de estos segundos
+    huecoMaximo: 0.5,
+  },
+  logo: {
+    escala: 0.6,
+  },
+};

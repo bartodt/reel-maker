@@ -3,13 +3,14 @@ import { cargarEnv } from "./lib/entorno.js";
 import { ErrorReel } from "./lib/errores.js";
 import { abrirProyecto } from "./lib/proyecto.js";
 import { comparar } from "./pasos/comparar.js";
+import { mandarAEdits } from "./pasos/edits.js";
 import { inventario } from "./pasos/inventario.js";
 import { limpiar } from "./pasos/limpiar.js";
 import { render } from "./pasos/render.js";
 import { transcribir } from "./pasos/transcribir.js";
 import { validar } from "./pasos/validar.js";
 
-const PASOS = { limpiar, transcribir, inventario, validar, render } as const;
+const PASOS = { limpiar, transcribir, inventario, validar, render, edits: mandarAEdits } as const;
 type NombrePaso = keyof typeof PASOS;
 const TODOS = [...Object.keys(PASOS), "comparar"];
 
@@ -21,6 +22,7 @@ Pasos (en orden):
   inventario   datos y capturas de cada clip
   validar      revisa edit/plan.json
   render       genera edit/final.mp4
+  edits        arma el reel en Edits para Mac (en vez de render)
 
 Para probar la herramienta:
   comparar     compara edit/plan.json con un plan de referencia

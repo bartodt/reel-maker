@@ -1,5 +1,7 @@
-// Cambios chicos al plan que se hacen desde la app: cambiar un plano, mover un corte, partir o sacar un plano.
+// Cambios chicos al plan que se hacen desde la app: cambiar un plano, mover un corte, partir o sacar un plano,
+// y prender o apagar los subtítulos del reel.
 // Cada función devuelve un plan nuevo; el original no se toca.
+import { SUBTITULOS } from "../config.js";
 import { encuadreValido, type Encuadre } from "./encuadre.js";
 import { ErrorReel } from "./errores.js";
 import { esSinVoz, type Plan, type Tramo, type TramoConVoz, type TramoSinVoz } from "./plan.js";
@@ -20,7 +22,8 @@ export type Edicion =
   | { op: "cambiar"; indice: number; cambios: Cambios }
   | { op: "corte"; indice: number; segundo: number }
   | { op: "partir"; indice: number; segundo: number }
-  | { op: "quitar"; indice: number };
+  | { op: "quitar"; indice: number }
+  | { op: "subtitulos"; activos: boolean };
 
 // Un plano no puede quedar más corto que esto al mover un corte o partirlo (segundos)
 const MINIMO = 0.1;
@@ -125,6 +128,14 @@ export function quitarTramo(plan: Plan, i: number): Plan {
   return nuevo;
 }
 
+/** Prende o apaga los subtítulos de todo el reel. Si queda como viene por defecto (config), se saca el campo. */
+export function ponerSubtitulos(plan: Plan, activos: boolean): Plan {
+  const nuevo = structuredClone(plan);
+  if (activos === SUBTITULOS.activados) delete nuevo.subtitulos;
+  else nuevo.subtitulos = activos;
+  return nuevo;
+}
+
 const numero = (v: unknown, nombre: string) => {
   if (typeof v !== "number" || !Number.isFinite(v)) throw new ErrorReel(`Falta ${nombre}.`);
   return v;
@@ -133,6 +144,10 @@ const numero = (v: unknown, nombre: string) => {
 /** Revisa lo que mandó la app (puede venir cualquier cosa) y aplica la edición. */
 export function aplicarEdicion(plan: Plan, pedido: unknown): Plan {
   const e = (pedido ?? {}) as Record<string, unknown>;
+  if (e.op === "subtitulos") {
+    if (typeof e.activos !== "boolean") throw new ErrorReel("Los subtítulos van o no van.");
+    return ponerSubtitulos(plan, e.activos);
+  }
   const indice = numero(e.indice, "el número de plano");
   switch (e.op) {
     case "cambiar":

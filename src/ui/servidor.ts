@@ -21,9 +21,10 @@ import {
   huella,
   leerReel,
   listarReels,
+  quitarClip,
   type TipoArchivo,
 } from "./reels.js";
-import { cancelar, pedirAClaude, preparar, renderizar, revisarClaude, trabajoDe } from "./trabajos.js";
+import { armarEnEdits, cancelar, pedirAClaude, preparar, renderizar, revisarClaude, trabajoDe } from "./trabajos.js";
 
 const WEB = path.join(path.dirname(fileURLToPath(import.meta.url)), "web");
 
@@ -148,6 +149,7 @@ export function crearServidor(o: { carpetaReels: string }) {
         ffmpeg: ffmpegOk,
         claude: await revisarClaude(),
         claveElevenLabs: Boolean(process.env.ELEVENLABS_API_KEY),
+        claveEdits: Boolean(process.env.EDITS_TOKEN),
       });
     }
     if (ruta === "POST /reels") {
@@ -156,9 +158,11 @@ export function crearServidor(o: { carpetaReels: string }) {
       return json(res, 200, { nombre: crearReel(base, titulo) });
     }
     if (ruta === "POST /clave") {
-      const { clave } = await leerCuerpo(req);
-      if (typeof clave !== "string" || !/^[\w-]{10,200}$/.test(clave.trim())) throw new ErrorReel("Esa clave no parece correcta. Copiala de nuevo.");
-      guardarEnEnv("ELEVENLABS_API_KEY", clave.trim());
+      const { clave, de } = await leerCuerpo(req);
+      // La de Edits a veces se copia con "Bearer " adelante
+      const limpia = typeof clave === "string" ? clave.trim().replace(/^Bearer\s+/i, "") : "";
+      if (!/^[\w.~+/=-]{10,500}$/.test(limpia)) throw new ErrorReel("Esa clave no parece correcta. Copiala de nuevo.");
+      guardarEnEnv(de === "edits" ? "EDITS_TOKEN" : "ELEVENLABS_API_KEY", limpia);
       return json(res, 200, { ok: true });
     }
 
@@ -197,6 +201,13 @@ export function crearServidor(o: { carpetaReels: string }) {
         const archivo = await guardarSubida(p, tipo, url.searchParams.get("nombre") ?? "archivo", req);
         return json(res, 200, { archivo });
       }
+      case "POST /reels/:n/quitar-clip": {
+        const { archivo } = await leerCuerpo(req);
+        if (typeof archivo !== "string") throw new ErrorReel("Falta el video.");
+        if (trabajoDe(p)?.estado === "corriendo") throw new ErrorReel("Esperá a que termine lo que se está haciendo y probá de nuevo.");
+        quitarClip(p, archivo);
+        return json(res, 200, { ok: true });
+      }
       case "PUT /reels/:n/guion": {
         const { texto } = await leerCuerpo(req);
         if (typeof texto !== "string") throw new ErrorReel("Falta el guion.");
@@ -231,6 +242,9 @@ export function crearServidor(o: { carpetaReels: string }) {
       }
       case "POST /reels/:n/render":
         renderizar(p);
+        return conTrabajo();
+      case "POST /reels/:n/edits":
+        armarEnEdits(p);
         return conTrabajo();
       case "POST /reels/:n/cancelar":
         cancelar(p);

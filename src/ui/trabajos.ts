@@ -8,6 +8,7 @@ import { RAIZ_REPO } from "../lib/entorno.js";
 import { ErrorReel } from "../lib/errores.js";
 import type { Ritmo } from "../lib/plan.js";
 import type { Proyecto } from "../lib/proyecto.js";
+import { mandarAEdits } from "../pasos/edits.js";
 import { inventario } from "../pasos/inventario.js";
 import { limpiar } from "../pasos/limpiar.js";
 import { render } from "../pasos/render.js";
@@ -18,7 +19,7 @@ import { descartarVersionSiNoCambio, guardarVersion, planDelFinal } from "./reel
 type EstadoEtapa = "pendiente" | "corriendo" | "listo" | "error";
 
 export interface Trabajo {
-  tipo: "preparar" | "claude" | "render";
+  tipo: "preparar" | "claude" | "render" | "edits";
   estado: "corriendo" | "listo" | "error" | "cancelado";
   etapas: { id: string; titulo: string; estado: EstadoEtapa }[];
   /** De 0 a 1. Si no está, no se sabe cuánto falta. */
@@ -166,6 +167,53 @@ export function renderizar(p: Proyecto) {
       t.termino = Date.now();
       t.ahora = undefined;
       t.mensaje = "¡Tu reel está listo!";
+    })
+    .catch((e) => fallo(t, e));
+}
+
+// --- Armar el reel en Edits ---
+
+export function armarEnEdits(p: Proyecto) {
+  if (!process.env.EDITS_TOKEN) throw new ErrorReel("Falta la clave de Edits. Cargala y probá de nuevo.");
+  const t = nuevo(p, "edits", [
+    { id: "material", titulo: "Preparar el material para Edits", estado: "corriendo" },
+    { id: "planos", titulo: "Poner cada plano", estado: "pendiente" },
+    { id: "resto", titulo: "Voz, música, textos y subtítulos", estado: "pendiente" },
+  ]);
+  t.ahora = "Empezando";
+  const etapa = (id: string) => {
+    for (const e of t.etapas) {
+      if (e.id === id) {
+        e.estado = "corriendo";
+        break;
+      }
+      e.estado = "listo";
+    }
+  };
+  mandarAEdits(p, (l) => {
+    anotar(t, l);
+    const m = /^Plano (\d+)\/(\d+)/.exec(l);
+    if (m) {
+      etapa("planos");
+      t.progreso = Number(m[1]) / Number(m[2]);
+      t.ahora = `Plano ${m[1]} de ${m[2]}`;
+    } else if (/^Proyecto nuevo/.test(l)) {
+      etapa("planos");
+      t.progreso = 0;
+      t.ahora = "Cargando tus videos en Edits";
+    } else if (/^(Poniendo|Escribiendo)/.test(l)) {
+      etapa("resto");
+      t.progreso = undefined;
+      t.ahora = l === "Poniendo la voz" ? "Poniendo tu voz" : l === "Escribiendo los subtítulos" ? "Escribiendo y corrigiendo los subtítulos" : l;
+    }
+  })
+    .then(({ titulo }) => {
+      t.etapas.forEach((e) => (e.estado = "listo"));
+      t.estado = "listo";
+      t.termino = Date.now();
+      t.ahora = undefined;
+      t.progreso = undefined;
+      t.mensaje = `¡Listo! Abrí Edits: está como "${titulo}".`;
     })
     .catch((e) => fallo(t, e));
 }

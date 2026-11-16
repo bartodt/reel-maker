@@ -34,11 +34,12 @@ Se abre sola en el navegador (http://localhost:4321). Ahí creás un reel, subí
 1. **Material**: arrastrás los videos, la voz en off y, si querés, música, logo y guion.
 2. **Preparar**: la app saca los silencios, escribe lo que decís y mira cada video.
 3. **Cortes**: Claude arma los cortes y los ves como un storyboard. Podés cambiar cada plano a mano (video, momento, encuadre, velocidad, texto grande, logo, partirlo o sacarlo) o pedirle cambios a Claude con tus palabras. Todo se puede deshacer.
-4. **Tu reel**: lo creás, lo mirás y lo descargás.
+4. **Tu reel**: lo armás en Edits (la app de Instagram para Mac) para retocarlo y publicarlo desde ahí, o lo creás acá como video, lo mirás y lo descargás.
 
 - Los reels se guardan en `~/reels/` (se cambia en `APP` de `src/config.ts`).
 - Para que Claude arme los cortes desde la app, Claude Code tiene que estar instalado y con la sesión iniciada: abrí la Terminal, escribí `claude` y seguí los pasos (una sola vez).
 - La clave de ElevenLabs se puede cargar desde la app (se guarda en `.env`).
+- Para armarlo en Edits: abrí Edits en la Mac, en Ajustes › Automation prendé el servidor de automatización y pegá su clave en la app la primera vez. Edits tiene que estar en su pantalla de inicio. El material se copia a `~/Movies/reel-maker/`, porque Edits solo puede abrir archivos de la carpeta Películas.
 - Para cerrarla, apretá Ctrl+C en la terminal donde la abriste.
 
 ## Cómo preparar un reel
@@ -77,6 +78,7 @@ npm run inventario  -- ~/reels/playa   # 3. info y capturas de cada clip
 # 4. escribí ~/reels/playa/edit/plan.json
 npm run validar     -- ~/reels/playa   # 5. revisa el plan
 npm run render      -- ~/reels/playa   # 6. genera edit/final.mp4
+npm run edits       -- ~/reels/playa   # 6 (otra opción). lo arma en Edits para Mac
 ```
 
 ### Formato del plan
@@ -97,6 +99,7 @@ Los tramos van en el orden en que se ven:
 ```
 
 - `ritmo` (opcional): `"rapido"`, `"normal"` o `"tranquilo"`. Si los planos no siguen ese ritmo, `validar` te avisa.
+- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Subtítulos" de la pantalla de cortes.
 - Tramo **con voz**: `desde` / `hasta` son segundos sobre la voz limpia (los que aparecen en `edit/transcripcion.md`). Los tramos con voz tienen que ir pegados entre sí y cubrir toda la voz.
 - Tramo **sin voz**: `duracion` en segundos. La voz en off espera mientras tanto; solo suena la música, o el clip si tiene `audioDelClip`.
 - `clip`: nombre del archivo dentro de `clips/`.
@@ -121,9 +124,11 @@ Los tramos van en el orden en que se ven:
 | `subtitulos.ass` | Subtítulos y textos grandes generados |
 | `final.mp4` | El reel terminado |
 | `final-plan.json` | El plan con el que se creó `final.mp4` (la app lo usa para saber si cambiaste algo después) |
+| `edits.json` | Con qué nombre y cuándo se armó en Edits |
 | `historial/` | Versiones anteriores del plan, para deshacer desde la app |
 | `miniaturas/` | Cuadros sueltos de los videos que muestra la app |
 | `anteriores/` | La voz, música o logo que reemplazaste desde la app |
+| `quitados/` | Los videos que sacaste desde la app (para recuperar uno, volvé a ponerlo en `clips/`) |
 
 ## Ajustes
 

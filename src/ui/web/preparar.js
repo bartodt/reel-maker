@@ -73,12 +73,23 @@ export function vistaPreparar(ctx) {
   ];
 }
 
-function tarjetaClave(ctx) {
+const CLAVES = {
+  elevenlabs: {
+    titulo: "Falta la clave de ElevenLabs",
+    texto: "Es el servicio que escribe lo que decís. La sacás en elevenlabs.io → Settings → API Keys. Se guarda en esta compu y no hace falta volver a cargarla.",
+  },
+  edits: {
+    titulo: "Falta la clave de Edits",
+    texto: "Abrí Edits en la Mac, andá a Ajustes → Automation, prendé el servidor de automatización y copiá la clave (Access token). Se guarda en esta compu y no hace falta volver a cargarla.",
+  },
+};
+
+export function tarjetaClave(ctx, de = "elevenlabs") {
   const campo = h("input", { class: "campo", type: "password", placeholder: "Pegá tu clave acá", autocomplete: "off" });
   const guardar = async () => {
     campo.blur();
     try {
-      await api("/clave", { metodo: "POST", cuerpo: { clave: campo.value } });
+      await api("/clave", { metodo: "POST", cuerpo: { clave: campo.value, de } });
       avisar("Clave guardada");
       await ctx.actualizarInicio();
     } catch (e) {
@@ -93,8 +104,8 @@ function tarjetaClave(ctx) {
     h(
       "div",
       { class: "crece" },
-      h("strong", null, "Falta la clave de ElevenLabs"),
-      h("p", null, "Es el servicio que escribe lo que decís. La sacás en elevenlabs.io → Settings → API Keys. Se guarda en esta compu y no hace falta volver a cargarla."),
+      h("strong", null, CLAVES[de].titulo),
+      h("p", null, CLAVES[de].texto),
       h("div", { class: "fila" }, campo, boton("Guardar", { clase: "boton--primario", onclick: guardar })),
     ),
   );

@@ -98,3 +98,10 @@ test("el plano típico es la mitad de los tramos con voz", () => {
   const tramos = [1, 3, 2].map((d, i) => ({ desde: i * 3, hasta: i * 3 + d, clip: "x", arrancaEn: 0 }));
   assert.equal(planoTipico([...tramos, { duracion: 9, clip: "x", arrancaEn: 0 }]), 2);
 });
+
+test("acepta apagar los subtítulos y rechaza valores raros", async () => {
+  const sin = await validarCon({ ...PLAN_VALIDO, subtitulos: false });
+  assert.ok(sin.ok);
+  const mal = await validarCon({ ...PLAN_VALIDO, subtitulos: "no" as any });
+  assert.ok(mal.errores.some((e) => e.includes('"subtitulos"')));
+});

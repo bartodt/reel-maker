@@ -75,6 +75,24 @@ test("crea un reel nuevo y sube videos sin pisar ninguno", async () => {
   // La voz puede venir en formatos menos comunes (.mpeg, .opus de WhatsApp, .caf del iPhone...)
   assert.equal((await subir("mi voz.mpeg", "voz")).datos.archivo, "voz.mpeg");
   assert.equal((await pedir("/api/reels/cafe-nuevo")).datos.material.voz.archivo, "voz.mpeg");
+
+  // Sacar un video no lo borra: queda en edit/quitados
+  const quitar = (archivo: string) => pedir("/api/reels/cafe-nuevo/quitar-clip", { metodo: "POST", cuerpo: { archivo } });
+  assert.equal((await quitar("playa (2).mov")).estado, 200);
+  assert.ok(!existsSync(path.join(base, "cafe-nuevo", "clips", "playa (2).mov")));
+  assert.ok(existsSync(path.join(base, "cafe-nuevo", "edit", "quitados", "playa (2).mov")));
+  assert.equal((await pedir("/api/reels/cafe-nuevo")).datos.material.clips.length, 1);
+  assert.equal((await quitar("playa (2).mov")).estado, 400);
+  assert.equal((await quitar("../voz.mpeg")).estado, 400);
+});
+
+test("no saca un video que usa algún plano", async () => {
+  escribirPlan(raiz, PLAN_VALIDO);
+  const usado = PLAN_VALIDO.tramos[0].clip;
+  const r = await pedir("/api/reels/prueba/quitar-clip", { metodo: "POST", cuerpo: { archivo: usado } });
+  assert.equal(r.estado, 400);
+  assert.match(r.datos.error, /plano 1/);
+  assert.ok(existsSync(path.join(raiz, "clips", usado)));
 });
 
 test("muestra el plan con la frase de cada plano, y se edita y deshace", async () => {
