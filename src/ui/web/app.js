@@ -202,15 +202,6 @@ function actualizar(reel) {
   dibujarReel();
 }
 
-// Mientras arrastra un deslizador no se redibuja (se lo sacaríamos de la mano)
-let arrastrando = false;
-document.addEventListener("pointerdown", (e) => (arrastrando = e.target instanceof HTMLInputElement && e.target.type === "range"));
-document.addEventListener("pointerup", () => {
-  if (!arrastrando) return;
-  arrastrando = false;
-  if (actual?.pendiente) setTimeout(() => actual?.pendiente && ((actual.pendiente = false), dibujarReel()), 50);
-});
-
 async function recargar() {
   if (!actual) return;
   try {
@@ -234,10 +225,6 @@ function dibujarReel() {
   // Si está escribiendo en un campo, no le cambiamos la pantalla: se redibuja cuando sale del campo
   const foco = document.activeElement;
   const escribiendo = foco?.tagName === "TEXTAREA" || (foco?.tagName === "INPUT" && ["text", "password", "search", "number"].includes(foco.type));
-  if (arrastrando) {
-    actual.pendiente = true;
-    return;
-  }
   if (escribiendo && app.contains(foco)) {
     if (!actual.pendiente) {
       actual.pendiente = true;
@@ -264,9 +251,8 @@ function dibujarReel() {
     ),
   );
 
-  // Se guarda dónde estaba el scroll (de la página y de los paneles con scroll propio) para no saltar al redibujar
+  // Se guarda dónde estaba el scroll para no saltar al redibujar
   const scroll = window.scrollY;
-  const scrolls = [...app.querySelectorAll("[data-scroll]")].map((el) => [el.dataset.scroll, el.scrollTop]);
   app.replaceChildren(
     barra(
       h("a", { class: "volver", href: "#/" }, icono("atras"), h("span", null, "Tus reels")),
@@ -277,10 +263,6 @@ function dibujarReel() {
     h("main", { class: "contenedor vista", id: "vista" }, PASOS[indice].vista(ctx)),
   );
   window.scrollTo(0, scroll);
-  for (const [clave, arriba] of scrolls) {
-    const el = app.querySelector(`[data-scroll="${clave}"]`);
-    if (el) el.scrollTop = arriba;
-  }
 }
 
 /** Si hay algo en marcha en otro paso, un aviso arriba para ir a verlo. */

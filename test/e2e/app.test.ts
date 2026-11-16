@@ -1,4 +1,4 @@
-// La app de punta a punta: crear un reel, subir material, editar los cortes, deshacer y crear el reel.
+// La app de punta a punta: crear un reel, subir material, cambiar los cortes, deshacer y crear el reel.
 import assert from "node:assert/strict";
 import { existsSync, mkdtempSync, readFileSync, renameSync } from "node:fs";
 import http from "node:http";
@@ -6,6 +6,9 @@ import type { AddressInfo } from "node:net";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { after, before, test } from "node:test";
+import type { Plan } from "../../src/lib/plan.js";
+import { abrirProyecto } from "../../src/lib/proyecto.js";
+import { guardarVersion } from "../../src/ui/reels.js";
 import { crearServidor } from "../../src/ui/servidor.js";
 import { PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
 
@@ -23,6 +26,12 @@ before(async () => {
 });
 
 after(() => servidor.close());
+
+/** Cambia el plan como lo hace Claude: guarda una versión para deshacer y escribe plan.json. */
+function cambiarPlan(plan: Plan) {
+  guardarVersion(abrirProyecto(raiz));
+  escribirPlan(raiz, plan);
+}
 
 async function pedir(ruta: string, opciones: { metodo?: string; cuerpo?: unknown; encabezados?: Record<string, string>; datos?: Buffer } = {}) {
   const r = await fetch(url + ruta, {
@@ -44,6 +53,8 @@ test("lista los reels y dice qué hay instalado", async () => {
 test("no acepta cambios que no vengan de la app ni pedidos de otros sitios", async () => {
   const sinMarca = await fetch(`${url}/api/reels`, { method: "POST", body: JSON.stringify({ titulo: "x" }) });
   assert.equal(sinMarca.status, 403);
+  const subtitulosSinMarca = await fetch(`${url}/api/reels/prueba/subtitulos`, { method: "POST", body: JSON.stringify({ activos: false }) });
+  assert.equal(subtitulosSinMarca.status, 403);
   // fetch no deja cambiar el Host: se arma el pedido a mano, como lo haría una página que apunta a esta compu con otro nombre
   const otroSitio = await new Promise<number>((resolver) =>
     http.get(`${url}/api/inicio`, { headers: { host: "malo.com" } }, (r) => (r.resume(), resolver(r.statusCode ?? 0))),
@@ -95,29 +106,39 @@ test("no saca un video que usa algún plano", async () => {
   assert.ok(existsSync(path.join(raiz, "clips", usado)));
 });
 
-test("muestra el plan con la frase de cada plano, y se edita y deshace", async () => {
+test("muestra el plan con la frase de cada plano, y deshace el último cambio", async () => {
   escribirPlan(raiz, PLAN_VALIDO);
   const reel = await pedir("/api/reels/prueba");
   assert.equal(reel.datos.validacion.ok, true);
   assert.equal(reel.datos.plan.tramos[0].frase, "Hola esto es una prueba.");
   assert.equal(reel.datos.plan.hayAnterior, false);
 
-  const partido = await pedir("/api/reels/prueba/plan", { metodo: "POST", cuerpo: { op: "partir", indice: 0, segundo: 1.2 } });
+  const [primero, segundo] = PLAN_VALIDO.tramos;
+  cambiarPlan({ tramos: [{ ...primero, hasta: 1.2 }, { ...primero, desde: 1.2, arrancaEn: 2.2 }, segundo] });
+  const partido = await pedir("/api/reels/prueba");
   assert.equal(partido.datos.plan.tramos.length, 3);
   assert.equal(partido.datos.plan.hayAnterior, true);
-  assert.equal(partido.datos.validacion.ok, true);
-
-  const mal = await pedir("/api/reels/prueba/plan", { metodo: "POST", cuerpo: { op: "corte", indice: 2, segundo: 1 } });
-  assert.equal(mal.estado, 400);
-  assert.match(mal.datos.error, /voz/);
 
   const deshecho = await pedir("/api/reels/prueba/deshacer", { metodo: "POST", cuerpo: {} });
   assert.equal(deshecho.datos.plan.tramos.length, 2);
   assert.equal(deshecho.datos.plan.hayAnterior, false);
 
-  // Un cambio que deja todo igual no ensucia el historial
-  const igual = await pedir("/api/reels/prueba/plan", { metodo: "POST", cuerpo: { op: "cambiar", indice: 0, cambios: { arrancaEn: 1 } } });
-  assert.equal(igual.datos.plan.hayAnterior, false);
+  const rutaVieja = await pedir("/api/reels/prueba/plan", { metodo: "POST", cuerpo: { op: "subtitulos", activos: false } });
+  assert.equal(rutaVieja.estado, 404);
+});
+
+test("prende y apaga los subtítulos, y se puede deshacer", async () => {
+  escribirPlan(raiz, PLAN_VALIDO);
+  const subtitulos = (activos: unknown) => pedir("/api/reels/prueba/subtitulos", { metodo: "POST", cuerpo: { activos } });
+
+  const apagados = await subtitulos(false);
+  assert.equal(apagados.datos.plan.subtitulos, false);
+  assert.equal(apagados.datos.plan.hayAnterior, true);
+  assert.equal((await subtitulos("no")).estado, 400);
+
+  const deshecho = await pedir("/api/reels/prueba/deshacer", { metodo: "POST", cuerpo: {} });
+  assert.equal(deshecho.datos.plan.subtitulos, true);
+  assert.equal(deshecho.datos.plan.hayAnterior, false);
 });
 
 test("sirve cuadros de los videos y pedazos de archivos", async () => {
@@ -146,7 +167,7 @@ test("crea el reel y después sabe si los cortes cambiaron", async () => {
   assert.ok(existsSync(path.join(raiz, "edit", "final-plan.json")));
 
   // Cambiar y deshacer deja el plan igual: el reel sigue al día
-  await pedir("/api/reels/prueba/plan", { metodo: "POST", cuerpo: { op: "cambiar", indice: 1, cambios: { velocidad: 2 } } });
+  cambiarPlan({ tramos: [PLAN_VALIDO.tramos[0], { ...PLAN_VALIDO.tramos[1], velocidad: 2 }] });
   reel = await pedir("/api/reels/prueba");
   assert.equal(reel.datos.pasos.finalViejo, true);
   await pedir("/api/reels/prueba/deshacer", { metodo: "POST", cuerpo: {} });
