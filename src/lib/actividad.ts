@@ -1,4 +1,6 @@
 // Traduce lo que va haciendo Claude (salida stream-json de `claude -p`) a frases simples para la app.
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 
 interface Bloque {
   type: string;
@@ -67,11 +69,19 @@ export function describirHerramienta(nombre: string, entrada: Record<string, unk
 /**
  * Las variables que deja una sesión de Claude Code abierta. Si la app se abrió desde una (por ejemplo, desde la terminal
  * de Claude Code), el Claude que llama la app no se tiene que colgar de esa sesión: tiene que andar como en una terminal nueva.
+ *
+ * Los comandos de Claude (como `npm run validar`) usan el mismo Node que la app. No alcanza con ponerlo primero en PATH:
+ * en macOS la terminal de Claude arranca como login shell y path_helper vuelve a poner adelante /usr/local/bin,
+ * donde puede haber un Node viejo. Claude Code corre CLAUDE_ENV_FILE antes de cada comando, después de eso.
  */
-export function entornoParaClaude(entorno: NodeJS.ProcessEnv): NodeJS.ProcessEnv {
-  return Object.fromEntries(
-    Object.entries(entorno).filter(([clave]) => !/^(CLAUDECODE$|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID$|CLAUDE_EFFORT$|CLAUDE_PREVIEW)/.test(clave)),
-  );
+export function entornoParaClaude(entorno: NodeJS.ProcessEnv, node: string): NodeJS.ProcessEnv {
+  return {
+    ...Object.fromEntries(
+      Object.entries(entorno).filter(([clave]) => !/^(CLAUDECODE$|CLAUDE_CODE_|CLAUDE_AGENT_SDK|CLAUDE_PID$|CLAUDE_EFFORT$|CLAUDE_PREVIEW)/.test(clave)),
+    ),
+    CLAUDE_ENV_FILE: fileURLToPath(new URL("node-de-la-app.sh", import.meta.url)),
+    REEL_CARPETA_NODE: path.dirname(node),
+  };
 }
 
 /** Lo que dice `claude auth status`: si hay sesión iniciada. Si no se entiende la respuesta (una versión vieja), se asume que sí. */

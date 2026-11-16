@@ -234,7 +234,7 @@ export async function revisarClaude(): Promise<EstadoClaude> {
   const viejo = estadoClaude && estadoClaude.valor !== "listo" && Date.now() - estadoClaude.cuando > 10_000;
   if (!estadoClaude || viejo) {
     revisando ??= new Promise<EstadoClaude>((resolver) =>
-      execFile("claude", ["auth", "status"], { env: entornoParaClaude(process.env), timeout: 20_000 }, (error, salida) => {
+      execFile("claude", ["auth", "status"], { env: entornoParaClaude(process.env, process.execPath), timeout: 20_000 }, (error, salida) => {
         if ((error as NodeJS.ErrnoException | null)?.code === "ENOENT") return resolver("falta");
         resolver(leerSesion(salida) ? "listo" : "sin-sesion");
       }),
@@ -307,7 +307,7 @@ export async function pedirAClaude(p: Proyecto, o: { modo: "armar" | "cambiar"; 
       "--add-dir", p.raiz,
       "--allowedTools", ...permisosParaClaude(p),
     ],
-    { cwd: RAIZ_REPO, stdio: ["ignore", "pipe", "pipe"], env: entornoParaClaude(process.env) },
+    { cwd: RAIZ_REPO, stdio: ["ignore", "pipe", "pipe"], env: entornoParaClaude(process.env, process.execPath) },
   );
   t.cancelar = () => {
     t.estado = "cancelado";

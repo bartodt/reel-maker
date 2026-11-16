@@ -1,6 +1,7 @@
 // Lógica de la app: en qué paso está un reel, nombres de carpetas y archivos, qué está haciendo Claude y el interruptor de subtítulos.
 import assert from "node:assert/strict";
-import { mkdtempSync, readFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
+import { mkdtempSync, readFileSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { test } from "node:test";
@@ -98,15 +99,29 @@ test("lo que hace Claude se cuenta en palabras simples", () => {
 });
 
 test("Claude se llama sin colgarse de otra sesión de Claude Code", () => {
-  const entorno = entornoParaClaude({
-    HOME: "/Users/x",
-    PATH: "/bin",
-    ANTHROPIC_API_KEY: "clave",
-    CLAUDECODE: "1",
-    CLAUDE_CODE_SESSION_ID: "abc",
-    CLAUDE_AGENT_SDK_VERSION: "1",
-  });
-  assert.deepEqual(entorno, { HOME: "/Users/x", PATH: "/bin", ANTHROPIC_API_KEY: "clave" });
+  const entorno = entornoParaClaude(
+    {
+      HOME: "/Users/x",
+      PATH: "/bin",
+      ANTHROPIC_API_KEY: "clave",
+      CLAUDECODE: "1",
+      CLAUDE_CODE_SESSION_ID: "abc",
+      CLAUDE_AGENT_SDK_VERSION: "1",
+    },
+    process.execPath,
+  );
+  assert.equal(entorno.CLAUDECODE, undefined);
+  assert.equal(entorno.CLAUDE_CODE_SESSION_ID, undefined);
+  assert.equal(entorno.CLAUDE_AGENT_SDK_VERSION, undefined);
+  assert.equal(entorno.ANTHROPIC_API_KEY, "clave");
+});
+
+test("los comandos de Claude usan el Node de la app aunque haya otro antes en PATH", () => {
+  const viejo = mkdtempSync(path.join(tmpdir(), "reel-node-viejo-"));
+  writeFileSync(path.join(viejo, "node"), "#!/bin/sh\necho v16\n", { mode: 0o755 });
+  const entorno = entornoParaClaude({ PATH: `${viejo}:/usr/bin:/bin` }, process.execPath);
+  const version = execFileSync("/bin/sh", ["-c", '. "$CLAUDE_ENV_FILE"; node -v'], { env: entorno, encoding: "utf8" });
+  assert.equal(version.trim(), process.version);
 });
 
 test("sabe si Claude tiene la sesión iniciada", () => {
