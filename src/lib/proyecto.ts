@@ -70,6 +70,16 @@ export function leerJson<T>(ruta: string): T {
   return JSON.parse(readFileSync(ruta, "utf8")) as T;
 }
 
+/** Para un archivo que puede faltar o venir roto: en vez de un error de Node, uno que se entiende. */
+export function leerJsonRevisado(ruta: string, que: string): unknown {
+  if (!existsSync(ruta)) throw new ErrorReel(`No encuentro ${que}: ${ruta}`);
+  try {
+    return leerJson(ruta);
+  } catch {
+    throw new ErrorReel(`No puedo leer ${que}, no es un JSON válido: ${ruta}`);
+  }
+}
+
 export function guardarJson(ruta: string, datos: unknown) {
   writeFileSync(ruta, JSON.stringify(datos, null, 2) + "\n");
 }

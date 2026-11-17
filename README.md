@@ -99,7 +99,7 @@ Los tramos van en el orden en que se ven:
 ```
 
 - `ritmo` (opcional): `"rapido"`, `"normal"` o `"tranquilo"`. Si los planos no siguen ese ritmo, `validar` te avisa.
-- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Con subtítulos" de la tarjeta de Edits, en "Tu reel".
+- `subtitulos` (opcional): `false` arma el reel sin subtítulos (los textos grandes siguen saliendo). Si no está, lleva subtítulos. En la app es el interruptor "Con subtítulos" de "Tu reel".
 - Tramo **con voz**: `desde` / `hasta` son segundos sobre la voz limpia (los que aparecen en `edit/transcripcion.md`). Los tramos con voz tienen que ir pegados entre sí y cubrir toda la voz.
 - Tramo **sin voz**: `duracion` en segundos. La voz en off espera mientras tanto; solo suena la música, o el clip si tiene `audioDelClip`.
 - `clip`: nombre del archivo dentro de `clips/`.
@@ -140,5 +140,5 @@ Todo está en `src/config.ts`: tamaño de video, cuánto silencio cortar, estilo
 - `CLAUDE.md` explica cómo está organizado el código y las reglas para cambiarlo (Claude Code lo lee solo).
 - `docs/ideas.md` tiene los pendientes y mejoras para ir iterando.
 - `npm test` corre los tests rápidos; `npm run test:e2e` hace un render completo con material de prueba; `npm run check` corre todo.
-- `referencias/` tiene reels que editaste a mano, para probar si la herramienta edita parecido. `npm run comparar -- <carpeta> referencias/pancho-y-coca/plan-real.json` compara el `plan.json` de una carpeta con tu edición. `npm run reconstruir -- <carpeta> <final.mp4>` arma una referencia nueva a partir de un reel ya publicado. Cómo correr la prueba completa: `referencias/README.md`.
+- `referencias/` tiene reels que editaste a mano, para probar si la herramienta edita parecido. `npm run comparar -- <carpeta> referencias/pancho-y-coca/plan-real.json` compara el `plan.json` de una carpeta con tu edición. `npm run reconstruir -- <carpeta> <final.mp4>` arma una referencia nueva a partir de un reel ya publicado. `npm run medir -- <carpeta de la corrida>` compara de una vez un plan por referencia y da una tabla con el promedio. `npm run corrida-a-ciegas -- <carpeta de la corrida>` arma la corrida, le pide cada plan a un Claude que no vio tus ediciones y la mide. Cómo correr la prueba completa y cómo armar la corrida: `referencias/README.md`. Dónde está hoy la herramienta: `referencias/linea-de-base.md`.
 - Hay un workflow de GitHub Actions (`.github/workflows/ci.yml`) que corre `npm run check` en cada push y pull request.

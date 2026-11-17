@@ -49,6 +49,7 @@ Cada referencia sale de una carpeta que ya tiene la voz limpia y la transcripci�
 | Carpeta original | `~/reels/pancho-y-coca-prueba` | `~/reels/hola-luli` |
 | Voz | `voz.wav` | `voz.mpeg` |
 | Logo | `~/reels/pancho-y-coca-prueba/referencia/logo.png` (dice "LOGO") | `referencias/casa-giro/logo.png` |
+| Guion | `referencias/pancho-y-coca/guion.md` | `~/reels/hola-luli/guion.md` |
 | Plan real | `referencias/pancho-y-coca/plan-real.json` | `referencias/casa-giro/plan-real.json` |
 
 1. Armá una carpeta nueva, fuera de la original, con un enlace `clips` a los `clips` de la original, una copia de la voz y del logo (como `logo.png`) y, dentro de `edit/`, copias de `voz-limpia.wav`, `voz-cortes.json`, `transcripcion.json` y `transcripcion.md` del `edit/` de la original. No escribas nada en la carpeta original.
@@ -60,3 +61,36 @@ Cada referencia sale de una carpeta que ya tiene la voz limpia y la transcripci�
 6. Anotá el resultado en `referencias/<reel>/prueba-N.md`.
 
 Como hay dos reels de referencia con crudos, los números sirven para ver si un cambio ayuda, no como nota final.
+
+### Todo junto, con un comando
+
+`npm run corrida-a-ciegas -- <carpeta de la corrida>` hace los pasos 1 a 5 para cada referencia de `referencias.json`. Para correr solo algunas, nombralas después de la carpeta.
+
+- Arma `<corrida>/<referencia>/` como en los pasos 1 a 3, con el logo y el guion que dice `referencias.json`. Revisa que el plan real pase `validar` con ese material, sin copiarlo a la carpeta.
+- Arma `<corrida>/repo/`, una copia del repo sin `referencias/`, `docs/`, `test/` ni `scripts/` y con el `estilo.md` sin ejemplos de Pancho y Coca.
+- Desde esa copia le pide el plan a un Claude nuevo, con el mismo pedido y los mismos permisos que usa la app, y ritmo `"tranquilo"`. Todo lo que hizo queda en `<corrida>/claude/<referencia>.jsonl`, y avisa si miró algo fuera de su carpeta y de la copia del repo.
+- Al final corre `medir` sobre la corrida.
+
+Si se corta, volvé a correrlo: no rehace lo que ya está. Si Claude falló a mitad de camino, borrá antes la carpeta de esa referencia, porque las descripciones a medias del inventario pasarían a la corrida nueva.
+
+`npm run cotas -- <carpeta>` mide planes que no eligen nada (clips al azar con cortes al azar, cada 0,6 s o en cada frase, un solo clip, la copia de Pancho y Coca sobre Casa Giro) y guarda el resumen en `cotas.json`. `linea-de-base.md` explica qué dicen.
+
+## Cómo medir contra todas las referencias
+
+`referencias.json` lista las referencias que tienen crudos: el nombre, la carpeta del reel con el material y su `plan-real.json`.
+
+1. Armá una carpeta para la corrida. Adentro va una subcarpeta por referencia, que se llama exactamente como la referencia en `referencias.json` (`casa-giro`, `pancho-y-coca`). Dentro de cada subcarpeta va el plan a medir, en `edit/plan.json`:
+   ```
+   corrida/
+     pancho-y-coca/edit/plan.json
+     casa-giro/edit/plan.json
+   ```
+   Cada una puede ser la carpeta de una prueba (pasos 1 a 3 de arriba). Para ver que anda, copiá cada `plan-real.json` como `edit/plan.json`: da 100% en todo.
+2. `npm run medir -- <carpeta de la corrida>`.
+
+Muestra una fila por referencia y una de promedio, y guarda lo mismo en `medicion.json`, dentro de la corrida (de 0 a 1). Una referencia sin plan sale "sin plan" y no cuenta en el promedio. Si un plan está mal armado (un tramo sin clip, un "desde" que no es un número), no mide nada: avisa qué referencia y qué tramo, para que no entre un 0% falso en el promedio. Las columnas son:
+
+- Mismo contenido, mismo clip y mismo momento: las tres de `comparar`, sobre el tiempo de voz.
+- Cortes: de todos los cortes, los de la referencia y los del plan juntos, qué parte forma pareja con uno del otro lado a menos de 0,3 s (a 0,3 s justos no forman pareja). Cada corte entra en una sola pareja, así que baja si faltan cortes y también si sobran. Solo cuenta cuando cambia la toma: partir una toma para cambiarle la velocidad o el texto no es un corte. Así Casa Giro tiene 17 cortes, los mismos que se ven en el publicado, y Pancho y Coca 14.
+
+`npm run comparar` también muestra la línea de cortes, con cuántas parejas hay y cuántos cortes tiene cada uno.

@@ -34,6 +34,7 @@ export function vistaReel(ctx) {
     const m = reel.material;
     return [
       encabezado("Tu reel", planOk ? "Está todo listo." : null),
+      interruptorSubtitulos(ctx),
       tarjetaEdits(ctx, planOk),
       fallo ? errorDeTrabajo(fallo, { reintentar: crear }) : null,
       h(
@@ -44,7 +45,6 @@ export function vistaReel(ctx) {
           { class: "resumen resumen--centro" },
           h("span", { class: "chip" }, icono("reloj"), reloj(reel.validacion?.duracion ?? 0)),
           h("span", { class: "chip" }, icono("video"), plural(reel.plan.tramos.length, "plano", "planos")),
-          reel.plan.subtitulos ? h("span", { class: "chip" }, icono("texto"), "Subtítulos") : null,
           m.musica ? h("span", { class: "chip" }, icono("musica"), "Música") : null,
           reel.plan.tramos.some((t) => t.logo) ? h("span", { class: "chip" }, icono("logo"), "Logo") : null,
         ),
@@ -64,6 +64,7 @@ export function vistaReel(ctx) {
       { class: "final__lado" },
       h("h1", null, reel.pasos.finalViejo ? "Tu reel" : "¡Tu reel está listo!"),
       h("p", { class: "suave grande" }, `${reloj(final.duracion)} · vertical para Instagram · creado ${haceCuanto(final.modificado)}`),
+      interruptorSubtitulos(ctx),
       reel.pasos.finalViejo
         ? h(
             "div",
@@ -101,27 +102,30 @@ function tarjetaEdits(ctx, planOk) {
   const armar = () => ctx.pedir("/edits", { metodo: "POST", cuerpo: {} }).catch(mostrarError);
   const fallo = trabajo?.tipo === "edits" && trabajo.estado === "error" ? trabajo : null;
   const ya = reel.edits;
-  const subtitulos = h("input", {
-    type: "checkbox",
-    checked: reel.plan.subtitulos,
-    onchange: () =>
-      ctx.pedir("/subtitulos", { metodo: "POST", cuerpo: { activos: subtitulos.checked } }).catch((e) => {
-        subtitulos.checked = !subtitulos.checked;
-        mostrarError(e);
-      }),
-  });
   return h(
     "section",
     { class: "tarjeta tarjeta--destacada centro" },
     h("h2", null, ya ? "Tu reel está en Edits" : "Terminalo en Edits"),
     ya
       ? h("p", { class: "suave" }, `Abrí Edits: está como "${ya.titulo}". Lo armaste ${haceCuanto(ya.modificado)}.`)
-      : h("p", { class: "suave" }, "La app lo arma en Edits con tus cortes, tu voz, los textos y los subtítulos. Después lo retocás y lo publicás desde ahí."),
+      : h("p", { class: "suave" }, `La app lo arma en Edits con ${reel.plan.subtitulos ? "tus cortes, tu voz, los textos y los subtítulos" : "tus cortes, tu voz y los textos"}. Después lo retocás y lo publicás desde ahí.`),
     ya?.cortesCambiados ? h("p", null, h("strong", null, "Cambiaste los cortes después."), " Si lo armás de nuevo, se crea otro proyecto en Edits y el anterior queda como está.") : null,
-    h("label", { class: "interruptor" }, subtitulos, h("span", { class: "interruptor__pista" }), h("span", null, "Con subtítulos")),
     fallo ? errorDeTrabajo(fallo, { reintentar: armar }) : null,
     planOk
       ? boton(ya ? "Armarlo de nuevo en Edits" : "Armarlo en Edits", { icono: "play", clase: ya && !ya.cortesCambiados ? "boton--secundario" : "boton--primario boton--enorme", onclick: armar })
       : h("div", null, h("p", { class: "suave" }, "Antes hay que arreglar algo en los cortes."), boton("Ir a Cortes", { icono: "atras", clase: "boton--secundario", onclick: () => ctx.ir("cortes") })),
   );
+}
+
+function interruptorSubtitulos(ctx) {
+  const casilla = h("input", {
+    type: "checkbox",
+    checked: ctx.reel.plan.subtitulos,
+    onchange: () =>
+      ctx.pedir("/subtitulos", { metodo: "POST", cuerpo: { activos: casilla.checked } }).catch((e) => {
+        casilla.checked = !casilla.checked;
+        mostrarError(e);
+      }),
+  });
+  return h("label", { class: "interruptor" }, casilla, h("span", { class: "interruptor__pista" }), h("span", null, "Con subtítulos"));
 }

@@ -1,0 +1,14 @@
+{
+  "pancho-y-coca": {
+    "carpeta": "~/reels/pancho-y-coca-prueba",
+    "plan": "pancho-y-coca/plan-real.json",
+    "logo": "~/reels/pancho-y-coca-prueba/referencia/logo.png",
+    "guion": "pancho-y-coca/guion.md"
+  },
+  "casa-giro": {
+    "carpeta": "~/reels/hola-luli",
+    "plan": "casa-giro/plan-real.json",
+    "logo": "casa-giro/logo.png",
+    "guion": "~/reels/hola-luli/guion.md"
+  }
+}
