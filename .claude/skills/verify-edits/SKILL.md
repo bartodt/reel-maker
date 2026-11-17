@@ -83,9 +83,12 @@ Para probar otra cosa (el reel completo, la app, una falla), seguí el archivo q
 - `scripts/verificar-edits.ts`, con `npm run verificar-edits` (prueba completa) y `npm run verificar-edits -- --revisar` (solo mirar).
 - `EDITS_URL` cambia a qué servidor habla (sirve para simular que Edits no está, por ejemplo `EDITS_URL=http://127.0.0.1:19599/mcp`).
 - `EDITS_CARPETA` cambia dónde se copia el material. Tiene que quedar dentro de `~/Movies`, porque Edits no puede leer afuera.
+- `EDITS_ESPERA` cambia cuántos segundos se espera cada respuesta de Edits antes de darlo por colgado. Sin la variable son 180.
+- `test/lib/edits-falso.ts` es el Edits de mentira que usan los tests. Sirve para ver qué dicen la terminal y la app cuando Edits falla, sin tocar Edits real y sin candado (`npx tsx test/lib/edits-falso.ts --ayuda`). No muestra cómo queda un reel. Para eso está Edits real.
 
 ## Gotchas
 
-- Si Edits deja de contestar en el medio, la terminal dice "No pude conectarme con Edits" aunque Edits siga abierto. Pasó una vez en 10 armados. Un pedido quedó colgado 2,5 minutos y después las herramientas de Edits volvieron solas. Esperá, mirá `appState` y, si quedó abierto un proyecto `prueba-` a medias, cerralo y borralo por id antes de reintentar.
+- Si Edits deja de contestar en el medio, la terminal dice "Edits dejó de contestar al" y el paso que estaba haciendo, aunque Edits siga abierto. Pasó una vez en 10 armados. Un pedido quedó colgado 2,5 minutos y después las herramientas de Edits volvieron solas. Esperá, mirá `appState` y, si quedó abierto un proyecto `prueba-` a medias, cerralo y borralo por id antes de reintentar.
+- Con la Mac muy cargada, `newProject` tarda entre 25 y 100 segundos y falla con "project was created but the editor did not open it". El armado dice "Edits no pudo crear el proyecto." y en Edits queda abierto un proyecto vacío "New project 1". `verificar-edits` lo cierra solo. Si lo dejó `npm run edits`, cerralo con `closeProject`. Como está vacío y sin guardar, Edits lo descarta y `projects` ya no lo lista.
 - `seek` a veces falla con "playhead did not reach". El armado no lo usa.
 - Los subtítulos salen de `edit/transcripcion.json`. Si la transcripción escribe mal un nombre, el subtítulo también (en Pancho y Coca dice "Pancho & Co.").

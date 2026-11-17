@@ -31,3 +31,4 @@ cp referencias/pancho-y-coca/plan-real.json $D/edit/plan.json
 - [Armar el reel desde la app](./armar-desde-la-app.md): el botón "Armarlo en Edits" y su avance.
 - [Subtítulos corregidos](./subtitulos.md): los subtítulos de Edits reescritos con la transcripción.
 - [Avisos cuando Edits no está listo](./avisos.md): Edits cerrado, clave mala, un proyecto abierto.
+- [Fallas en el medio del armado](./fallas.md): qué dicen la terminal y la app cuando Edits falla o contesta algo raro.
