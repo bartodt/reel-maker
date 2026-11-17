@@ -10,7 +10,7 @@ import type { Plan } from "../../src/lib/plan.js";
 import { abrirProyecto } from "../../src/lib/proyecto.js";
 import { guardarVersion } from "../../src/ui/reels.js";
 import { crearServidor } from "../../src/ui/servidor.js";
-import { PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
+import { LIMITE, PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
 
 const base = mkdtempSync(path.join(tmpdir(), "reels-app-"));
 const servidor = crearServidor({ carpetaReels: base });
@@ -43,14 +43,14 @@ async function pedir(ruta: string, opciones: { metodo?: string; cuerpo?: unknown
   return { estado: r.status, tipo, datos: tipo.includes("json") ? await r.json() : Buffer.from(await r.arrayBuffer()) };
 }
 
-test("lista los reels y dice qué hay instalado", async () => {
+test("lista los reels y dice qué hay instalado", LIMITE, async () => {
   const r = await pedir("/api/inicio");
   assert.equal(r.estado, 200);
   assert.deepEqual(r.datos.reels.map((x: { nombre: string }) => x.nombre), ["prueba"]);
   assert.equal(r.datos.ffmpeg, "ok");
 });
 
-test("no acepta cambios que no vengan de la app ni pedidos de otros sitios", async () => {
+test("no acepta cambios que no vengan de la app ni pedidos de otros sitios", LIMITE, async () => {
   const sinMarca = await fetch(`${url}/api/reels`, { method: "POST", body: JSON.stringify({ titulo: "x" }) });
   assert.equal(sinMarca.status, 403);
   const subtitulosSinMarca = await fetch(`${url}/api/reels/prueba/subtitulos`, { method: "POST", body: JSON.stringify({ activos: false }) });
@@ -66,7 +66,7 @@ test("no acepta cambios que no vengan de la app ni pedidos de otros sitios", asy
   assert.equal(otroReel.estado, 400);
 });
 
-test("crea un reel nuevo y sube videos sin pisar ninguno", async () => {
+test("crea un reel nuevo y sube videos sin pisar ninguno", LIMITE, async () => {
   const nuevo = await pedir("/api/reels", { metodo: "POST", cuerpo: { titulo: "Café nuevo" } });
   assert.equal(nuevo.datos.nombre, "cafe-nuevo");
   assert.ok(existsSync(path.join(base, "cafe-nuevo", "clips")));
@@ -97,7 +97,7 @@ test("crea un reel nuevo y sube videos sin pisar ninguno", async () => {
   assert.equal((await quitar("../voz.mpeg")).estado, 400);
 });
 
-test("no saca un video que usa algún plano", async () => {
+test("no saca un video que usa algún plano", LIMITE, async () => {
   escribirPlan(raiz, PLAN_VALIDO);
   const usado = PLAN_VALIDO.tramos[0].clip;
   const r = await pedir("/api/reels/prueba/quitar-clip", { metodo: "POST", cuerpo: { archivo: usado } });
@@ -106,7 +106,7 @@ test("no saca un video que usa algún plano", async () => {
   assert.ok(existsSync(path.join(raiz, "clips", usado)));
 });
 
-test("muestra el plan con la frase de cada plano, y deshace el último cambio", async () => {
+test("muestra el plan con la frase de cada plano, y deshace el último cambio", LIMITE, async () => {
   escribirPlan(raiz, PLAN_VALIDO);
   const reel = await pedir("/api/reels/prueba");
   assert.equal(reel.datos.validacion.ok, true);
@@ -127,7 +127,7 @@ test("muestra el plan con la frase de cada plano, y deshace el último cambio", 
   assert.equal(rutaVieja.estado, 404);
 });
 
-test("prende y apaga los subtítulos, y se puede deshacer", async () => {
+test("prende y apaga los subtítulos, y se puede deshacer", LIMITE, async () => {
   escribirPlan(raiz, PLAN_VALIDO);
   const subtitulos = (activos: unknown) => pedir("/api/reels/prueba/subtitulos", { metodo: "POST", cuerpo: { activos } });
 
@@ -141,7 +141,7 @@ test("prende y apaga los subtítulos, y se puede deshacer", async () => {
   assert.equal(deshecho.datos.plan.hayAnterior, false);
 });
 
-test("sirve cuadros de los videos y pedazos de archivos", async () => {
+test("sirve cuadros de los videos y pedazos de archivos", LIMITE, async () => {
   const cuadro = await pedir("/api/reels/prueba/cuadro?archivo=clips/horizontal.mp4&t=1&vertical=1&encuadre=izquierda&alto=320");
   assert.equal(cuadro.estado, 200);
   assert.equal(cuadro.tipo, "image/jpeg");
@@ -151,7 +151,7 @@ test("sirve cuadros de los videos y pedazos de archivos", async () => {
   assert.equal((pedazo.datos as Buffer).length, 100);
 });
 
-test("crea el reel y después sabe si los cortes cambiaron", async () => {
+test("crea el reel y después sabe si los cortes cambiaron", LIMITE, async () => {
   await pedir("/api/reels/prueba/render", { metodo: "POST", cuerpo: {} });
   let trabajo;
   for (let i = 0; i < 120; i++) {

@@ -19,7 +19,7 @@
     "medir": "tsx src/cli.ts medir",
     "typecheck": "tsc --noEmit",
     "test": "node --import tsx --test test/unit/*.test.ts",
-    "test:e2e": "node --import tsx --test test/e2e/*.test.ts",
+    "test:e2e": "node --import tsx --test --test-force-exit test/e2e/*.test.ts",
     "check": "npm run typecheck && npm test && npm run test:e2e"
   },
   "dependencies": {

@@ -7,6 +7,9 @@ import type { Plan } from "../../src/lib/plan.js";
 
 export const DURACION_VOZ = 6;
 
+/** Si un ffmpeg se cuelga, el test falla con su nombre en vez de dejar todo esperando. */
+export const LIMITE = { timeout: 2 * 60_000 };
+
 /**
  * Crea un proyecto de prueba en una carpeta temporal, con clips generados por ffmpeg,
  * una "voz limpia" (un tono) y una transcripción falsa. No necesita red ni ElevenLabs.

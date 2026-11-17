@@ -5,7 +5,7 @@ import { test } from "node:test";
 import { VIDEO } from "../../src/config.js";
 import { info } from "../../src/lib/ffmpeg.js";
 import { render } from "../../src/pasos/render.js";
-import { DURACION_VOZ, PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
+import { DURACION_VOZ, LIMITE, PLAN_VALIDO, crearProyectoDePrueba, escribirPlan } from "../lib/fixtures.js";
 
 const silencio = () => {};
 
@@ -21,7 +21,7 @@ function volumen(archivo: string, desde: number, duracion: number): number {
 }
 
 for (const conMusica of [false, true]) {
-  test(`render completo ${conMusica ? "con" : "sin"} música`, async () => {
+  test(`render completo ${conMusica ? "con" : "sin"} música`, LIMITE, async () => {
     const p = await crearProyectoDePrueba({ conMusica });
     escribirPlan(p.raiz, PLAN_VALIDO);
     await render(p, silencio);
@@ -37,7 +37,7 @@ for (const conMusica of [false, true]) {
   });
 }
 
-test("render con gancho, alguien del clip hablando, velocidad, texto, imagen congelada, logo y sin subtítulos", async () => {
+test("render con gancho, alguien del clip hablando, velocidad, texto, imagen congelada, logo y sin subtítulos", LIMITE, async () => {
   const p = await crearProyectoDePrueba();
   escribirPlan(p.raiz, {
     subtitulos: false,

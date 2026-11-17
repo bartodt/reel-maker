@@ -6,9 +6,9 @@ import { CAPTURAS } from "../../src/config.js";
 import { info } from "../../src/lib/ffmpeg.js";
 import { leerJson } from "../../src/lib/proyecto.js";
 import { inventario, type ClipInventario } from "../../src/pasos/inventario.js";
-import { crearProyectoDePrueba } from "../lib/fixtures.js";
+import { LIMITE, crearProyectoDePrueba } from "../lib/fixtures.js";
 
-test("inventario: una grilla de capturas por clip, sin perder las descripciones", async () => {
+test("inventario: una grilla de capturas por clip, sin perder las descripciones", LIMITE, async () => {
   const p = await crearProyectoDePrueba();
   const primero = await inventario(p, () => {});
   assert.deepEqual(primero.map((c) => c.archivo), ["con-audio.mp4", "horizontal.mp4", "vertical.mov"]);
