@@ -3,11 +3,11 @@
 import { copyFileSync, existsSync, mkdirSync, statSync } from "node:fs";
 import path from "node:path";
 import { EDITS, MUSICA } from "../config.js";
-import { conectarConEdits, type Edits } from "../lib/edits.js";
+import { conectarConEdits, ErrorDeEdits, type Agregado, type Alias, type Edits, type IdDePista } from "../lib/edits.js";
 import { expandirCasa } from "../lib/entorno.js";
 import { ErrorReel } from "../lib/errores.js";
 import { ffmpeg, info } from "../lib/ffmpeg.js";
-import { armarMontaje, corregirSubtitulos, ratosConAudioDelClip, TOLERANCIA_EDITS, type SubtituloDeEdits } from "../lib/montaje.js";
+import { armarMontaje, corregirSubtitulos, ratosConAudioDelClip, TOLERANCIA_EDITS } from "../lib/montaje.js";
 import { validarPlan } from "../lib/plan.js";
 import { guardarJson, leerJson, segundos, type Proyecto } from "../lib/proyecto.js";
 import type { Palabra } from "../lib/transcripcion.js";
@@ -17,10 +17,6 @@ export function archivoEdits(p: Proyecto) {
   return path.join(p.edit, "edits.json");
 }
 
-interface Agregado {
-  added: { id: string; trackId: string; start: number; end: number }[];
-}
-
 /** Copia un archivo a la carpeta que Edits puede abrir, salvo que ya esté igual. */
 function copiar(origen: string, carpeta: string, nombre = path.basename(origen)) {
   const destino = path.join(carpeta, nombre);
@@ -28,7 +24,18 @@ function copiar(origen: string, carpeta: string, nombre = path.basename(origen))
   return destino;
 }
 
-export async function mandarAEdits(p: Proyecto, log = console.log) {
+/** Si Edits falla, el error dice qué paso no se pudo hacer y el detalle técnico queda anotado con `log`. */
+export async function mandarAEdits(p: Proyecto, log: (linea: string) => void = console.log) {
+  try {
+    return await armar(p, log);
+  } catch (e) {
+    if (!(e instanceof ErrorDeEdits)) throw e;
+    log(`Detalle: ${e.motivo}`);
+    throw new ErrorReel(e.message);
+  }
+}
+
+async function armar(p: Proyecto, log: (linea: string) => void) {
   const r = await validarPlan(p);
   if (!r.ok) throw new ErrorReel([...r.errores.map((e) => `Error: ${e}`), "Arreglá el plan y probá de nuevo."].join("\n"));
   const plan = r.plan!;
@@ -36,8 +43,7 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   const titulo = path.basename(p.raiz);
 
   const edits = await conectarConEdits();
-  const { screen } = await edits.usar<{ screen: string }>("appState");
-  if (screen !== "home") {
+  if ((await edits.pantalla()) !== "inicio") {
     throw new ErrorReel("En Edits hay un proyecto abierto. Volvé a la pantalla de inicio de Edits y probá de nuevo.");
   }
 
@@ -58,98 +64,100 @@ export async function mandarAEdits(p: Proyecto, log = console.log) {
   }
   const voz = copiar(p.vozLimpia, carpeta);
   const musica = p.musica ? copiar(p.musica, carpeta, `musica${path.extname(p.musica)}`) : undefined;
-  if (m.logos.length && !p.logo) throw new ErrorReel("El plan lleva logo pero no encontré logo.png.");
-  const logo = m.logos.length && p.logo ? copiar(p.logo, carpeta, `logo${path.extname(p.logo)}`) : undefined;
+  let logo: string | undefined;
+  if (m.logos.length) {
+    if (!p.logo) throw new ErrorReel("El plan lleva logo pero no encontré logo.png.");
+    logo = copiar(p.logo, carpeta, `logo${path.extname(p.logo)}`);
+  }
 
   // 2. Proyecto nuevo
-  const { id: proyecto } = await edits.usar<{ id: string }>("newProject");
-  await edits.usar("setTitle", { name: titulo });
+  const proyecto = await edits.proyectoNuevo();
+  await edits.ponerTitulo(titulo);
   log(`Proyecto nuevo en Edits: ${titulo}`);
 
-  const alias = new Map<string, string>();
-  const importar = async (clave: string, ruta: string) => alias.set(clave, await importarAlPanel(edits, ruta));
-  for (const [clave, ruta] of archivos) await importar(clave, ruta);
-  await importar("voz", voz);
-  if (musica) await importar("musica", musica);
+  const alias = new Map<string, Alias>();
+  for (const [clave, ruta] of archivos) alias.set(clave, await importarAlPanel(edits, ruta));
+  const aliasVoz = await importarAlPanel(edits, voz);
+  const cancion = musica ? { ruta: musica, alias: await importarAlPanel(edits, musica) } : undefined;
 
   // 3. Planos, de a uno y en orden: cada uno entra como superpuesto al final y se pasa a la pista principal.
   //    (Pasar varios a la vez o en el medio deja planos en otra pista.)
   let fin = 0;
-  let principal: string | undefined;
+  let principal: IdDePista | undefined;
   for (const [i, plano] of m.planos.entries()) {
-    const id = await agregarPlano(edits, plano.congelado ? alias.get(`congelado-${i + 1}`)! : alias.get(plano.clip)!, {
-      desde: plano.congelado ? 0 : plano.desde,
-      hasta: plano.congelado ? plano.fin - plano.inicio : Math.min(plano.hasta, await largoEnEdits(archivos.get(plano.clip)!)),
-      en: fin,
-      velocidad: plano.congelado ? 1 : plano.velocidad,
-    });
-    const { trackId } = await edits.usar<{ trackId: string }>("convertToMain", { id });
-    principal ??= trackId;
-    if (trackId !== principal) throw new Error(`El plano ${i + 1} quedó fuera de la pista principal de Edits`);
-    if (!plano.congelado && !plano.audioDelClip) await edits.usar("setVolume", { id, volume: 0 });
-    const { elements } = await edits.usar<{ elements: { endTime: number }[] }>("elements", { trackId: principal, fields: ["endTime"] });
-    fin = Math.max(...elements.map((e) => e.endTime));
+    const que = `poner el plano ${i + 1} en la pista principal`;
+    const { id } = await edits.agregarALaLinea(
+      {
+        alias: plano.congelado ? alias.get(`congelado-${i + 1}`)! : alias.get(plano.clip)!,
+        desde: plano.congelado ? 0 : plano.desde,
+        hasta: plano.congelado ? plano.fin - plano.inicio : Math.min(plano.hasta, await largoEnEdits(archivos.get(plano.clip)!)),
+        inicio: fin,
+        superpuesto: true,
+      },
+      que,
+    );
+    // La velocidad va antes de pasarlo a la pista principal, para que entre con su largo final
+    if (!plano.congelado && plano.velocidad !== 1) await edits.cambiarVelocidad(id, plano.velocidad, que);
+    const pista = await edits.pasarAPrincipal(id, que);
+    principal ??= pista;
+    if (pista !== principal) throw new ErrorDeEdits("rechazo", que, `convertToMain lo dejó en la pista ${pista} y la principal es ${principal}`);
+    if (!plano.congelado && !plano.audioDelClip) await edits.cambiarVolumen(id, 0, que);
+    fin = await edits.finDeLaPista(principal, que);
     log(`Plano ${i + 1}/${m.planos.length}`);
   }
 
   // 4. Voz en off (en pedazos: se corta donde habla alguien del clip) y música
   log("Poniendo la voz");
-  let pistaVoz: string | undefined;
+  let pistaVoz: IdDePista | undefined;
   for (const pedazo of m.voz) {
-    const { added } = await edits.usar<Agregado>("addMediaPanelItemsToTimeline", {
-      aliasIds: [alias.get("voz")],
-      sourceIn: pedazo.desde,
-      sourceOut: Math.min(pedazo.hasta, await largoEnEdits(voz)),
-      startTime: pedazo.inicio,
-      ...(pistaVoz ? { trackId: pistaVoz } : {}),
-    });
-    await ubicar(edits, added[0].id, added[0].start, pedazo.inicio);
-    pistaVoz ??= added[0].trackId;
+    const hasta = Math.min(pedazo.hasta, await largoEnEdits(voz));
+    const puesto = await edits.agregarALaLinea({ alias: aliasVoz, desde: pedazo.desde, hasta, inicio: pedazo.inicio, pista: pistaVoz }, "poner la voz");
+    await ubicar(edits, puesto, pedazo.inicio, "poner la voz");
+    pistaVoz ??= puesto.pista;
   }
-  if (musica) {
+  if (cancion) {
     log("Poniendo la música");
-    const duracion = Math.min(m.duracion, await largoEnEdits(musica));
-    const { added } = await edits.usar<Agregado>("addMediaPanelItemsToTimeline", { aliasIds: [alias.get("musica")], sourceIn: 0, sourceOut: duracion, startTime: 0 });
-    await ubicar(edits, added[0].id, added[0].start, 0);
-    await edits.usar("setVolume", { id: added[0].id, volume: MUSICA.volumen });
+    const que = "poner la música";
+    const hasta = Math.min(m.duracion, await largoEnEdits(cancion.ruta));
+    const puesto = await edits.agregarALaLinea({ alias: cancion.alias, desde: 0, hasta, inicio: 0 }, que);
+    await ubicar(edits, puesto, 0, que);
+    await edits.cambiarVolumen(puesto.id, MUSICA.volumen, que);
   }
 
   // 5. Textos grandes y logo
   log("Poniendo los textos");
   const t = EDITS.textos;
   for (const texto of m.textos) {
-    const { id, startTime } = await edits.usar<{ id: string; startTime: number }>("addText", {
-      text: texto.texto,
-      atSeconds: texto.inicio,
-      duration: texto.fin - texto.inicio,
-    });
-    await ubicar(edits, id, startTime, texto.inicio);
-    await edits.usar("setTextStyle", { id, size: t.tamano, bold: true, color: t.color, alignment: "center" });
-    await edits.usar("setTextPosition", { id, x: t.x, y: t.y });
-    await edits.usar("setTextAnimation", { id, animation: texto.animacion });
+    const que = `poner el texto "${texto.texto.replace(/\n/g, " / ")}"`;
+    const puesto = await edits.agregarTexto({ texto: texto.texto, inicio: texto.inicio, duracion: texto.fin - texto.inicio }, que);
+    await ubicar(edits, puesto, texto.inicio, que);
+    await edits.estiloDeTexto(puesto.id, { tamano: t.tamano, negrita: true, color: t.color, alineacion: "center" }, que);
+    await edits.posicionDeTexto(puesto.id, { x: t.x, y: t.y }, que);
+    await edits.animacionDeTexto(puesto.id, texto.animacion, que);
   }
-  for (const bloque of m.logos) {
-    const { id } = await edits.usar<{ id: string }>("addOverlay", { path: logo, startSeconds: bloque.inicio, x: 0.5, y: 0.5, scale: EDITS.logo.escala });
-    const { duration, startTime } = await edits.usar<{ duration: number; startTime: number }>("getElement", { id });
-    await ubicar(edits, id, startTime, bloque.inicio);
-    // trimClip con delta positivo acorta y con delta negativo alarga
-    await edits.usar("trimClip", { id, side: "end", delta: duration - (bloque.fin - bloque.inicio) });
+  if (logo) {
+    const que = "poner el logo";
+    for (const bloque of m.logos) {
+      const id = await edits.agregarImagen({ ruta: logo, inicio: bloque.inicio, x: 0.5, y: 0.5, escala: EDITS.logo.escala }, que);
+      const { inicio, duracion } = await edits.elemento(id, que);
+      await ubicar(edits, { id, inicio }, bloque.inicio, que);
+      await edits.recortarFinal(id, duracion - (bloque.fin - bloque.inicio), que);
+    }
   }
 
   // 6. Subtítulos: los escribe Edits y se corrigen con la transcripción (nombres, "podés", lo que dice alguien del clip)
   if (m.subtitulos && existsSync(p.transcripcion)) {
     log("Escribiendo los subtítulos");
-    await edits.usar("generateCaptions", { source: "all", language: EDITS.subtitulos.idioma, curseWords: false });
-    const { captions } = await edits.usar<{ captions: SubtituloDeEdits[] }>("captions");
+    await edits.generarSubtitulos(EDITS.subtitulos.idioma);
     const palabras = leerJson<{ words: Palabra[] }>(p.transcripcion).words;
-    for (const c of corregirSubtitulos(captions, palabras, plan.tramos, ratosConAudioDelClip(m))) {
-      if (c.accion === "borrar") await edits.usar("deleteCaptions", { id: c.id });
-      else await edits.usar("editCaption", { id: c.id, text: c.texto });
+    for (const c of corregirSubtitulos(await edits.subtitulos(), palabras, plan.tramos, ratosConAudioDelClip(m))) {
+      if (c.accion === "borrar") await edits.borrarSubtitulo(c.id);
+      else await edits.corregirSubtitulo(c.id, c.texto);
     }
-    await edits.usar("setCaptionStyle", { style: EDITS.subtitulos.estilo });
+    await edits.estiloDeSubtitulos(EDITS.subtitulos.estilo);
   }
 
-  await edits.usar("saveProject");
+  await edits.guardarProyecto();
   guardarJson(archivoEdits(p), { proyecto, titulo, fecha: new Date().toISOString() });
   log(`Proyecto guardado en Edits: "${titulo}".`);
   return { proyecto, titulo };
@@ -161,8 +169,8 @@ async function largoEnEdits(ruta: string) {
 }
 
 /** A veces Edits pone lo nuevo donde estaba el cursor y no donde se le pidió (pasa con addText), y lo dice en su respuesta. */
-async function ubicar(edits: Edits, id: string, quedo: number, inicio: number) {
-  if (Math.abs(quedo - inicio) > TOLERANCIA_EDITS) await edits.usar("move", { id, toSeconds: inicio });
+async function ubicar(edits: Edits, puesto: Agregado, inicio: number, que: string) {
+  if (Math.abs(puesto.inicio - inicio) > TOLERANCIA_EDITS) await edits.mover(puesto.id, inicio, que);
 }
 
 export function carpetaParaEdits() {
@@ -173,24 +181,9 @@ export function carpetaParaEdits() {
 async function importarAlPanel(edits: Edits, ruta: string) {
   for (let intento = 1; ; intento++) {
     try {
-      const { aliasIds } = await edits.usar<{ aliasIds: string[] }>("importToMediaPanel", { path: ruta });
-      return aliasIds[0];
+      return await edits.importar(ruta);
     } catch (e) {
-      if (intento === 3 || !String(e).includes("no media panel")) throw e;
+      if (intento === 3 || !(e instanceof ErrorDeEdits) || !e.motivo.includes("no media panel")) throw e;
     }
   }
-}
-
-async function agregarPlano(edits: Edits, aliasId: string, o: { desde: number; hasta: number; en: number; velocidad: number }) {
-  const { added } = await edits.usar<Agregado>("addMediaPanelItemsToTimeline", {
-    aliasIds: [aliasId],
-    sourceIn: o.desde,
-    sourceOut: o.hasta,
-    startTime: o.en,
-    asOverlay: true,
-  });
-  const id = added[0].id;
-  // La velocidad va antes de pasarlo a la pista principal, para que entre con su largo final
-  if (o.velocidad !== 1) await edits.usar("setSpeed", { id, speed: o.velocidad });
-  return id;
 }

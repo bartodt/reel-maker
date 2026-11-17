@@ -2,10 +2,10 @@
 import { copyFileSync, existsSync, mkdirSync, rmSync, symlinkSync, writeFileSync } from "node:fs";
 import path from "node:path";
 import { cargarEnv, expandirCasa } from "../src/lib/entorno.js";
-import { conectarConEdits, type Edits } from "../src/lib/edits.js";
+import { conectarConEdits, ErrorDeEdits, type Edits, type IdDeProyecto } from "../src/lib/edits.js";
 import { ErrorReel } from "../src/lib/errores.js";
 import { ffmpeg } from "../src/lib/ffmpeg.js";
-import { armarMontaje, diferenciasConEdits, type ElementoDeEdits, type SubtituloDeEdits } from "../src/lib/montaje.js";
+import { armarMontaje, diferenciasConEdits } from "../src/lib/montaje.js";
 import type { Plan } from "../src/lib/plan.js";
 import { abrirProyecto, guardarJson, leerJson } from "../src/lib/proyecto.js";
 import type { Palabra } from "../src/lib/transcripcion.js";
@@ -27,15 +27,6 @@ const PLAN: Plan = {
   ],
 };
 
-interface ProyectoDeEdits {
-  id: string;
-  name: string;
-}
-
-async function proyectosEnEdits(edits: Edits) {
-  return (await edits.usar<{ projects: ProyectoDeEdits[] }>("projects")).projects;
-}
-
 async function armarReelDePrueba(titulo: string) {
   for (const f of ["clips", "referencia/logo.png", "edit/voz-limpia.wav", "edit/transcripcion.json"].map((f) => path.join(MATERIAL, f))) {
     if (!existsSync(f)) throw new ErrorReel(`Para la prueba falta ${f} (el material de Pancho y Coca).`);
@@ -51,27 +42,14 @@ async function armarReelDePrueba(titulo: string) {
   return abrirProyecto(raiz);
 }
 
-async function lineaDeTiempo(edits: Edits) {
-  const elementos: ElementoDeEdits[] = [];
-  let offset: number | undefined = 0;
-  while (offset !== undefined) {
-    const pagina: { elements: ElementoDeEdits[]; nextOffset?: number } = await edits.usar("elements", { offset, limit: 200 });
-    elementos.push(...pagina.elements);
-    offset = pagina.nextOffset;
-  }
-  const { captions } = await edits.usar<{ captions: SubtituloDeEdits[] }>("captions");
-  return { elementos, subtitulos: captions };
-}
-
 /** La lista de projects de Edits tarda en ponerse al día después de closeProject: un proyecto borrado puede volver a aparecer. */
-async function borrarProyectoDePrueba(edits: Edits, titulo: string, antes: Set<string>) {
-  const { screen } = await edits.usar<{ screen: string }>("appState");
-  if (screen !== "home" && (await edits.usar<{ title: string }>("title")).title === titulo) await edits.usar("closeProject");
+async function borrarProyectoDePrueba(edits: Edits, titulo: string, antes: Set<IdDeProyecto>) {
+  if ((await edits.pantalla()) !== "inicio" && (await edits.titulo()) === titulo) await edits.cerrarProyecto();
   let seguidasSinVer = 0;
   for (let vuelta = 0; vuelta < 30 && seguidasSinVer < 2; vuelta++) {
-    const nuestros = (await proyectosEnEdits(edits)).filter((x) => x.name === titulo && !antes.has(x.id));
+    const nuestros = (await edits.proyectos()).filter((x) => x.nombre === titulo && !antes.has(x.id));
     seguidasSinVer = nuestros.length ? 0 : seguidasSinVer + 1;
-    for (const x of nuestros) await edits.usar("deleteProject", { id: x.id }).catch(() => {});
+    for (const x of nuestros) await edits.borrarProyecto(x.id).catch(() => {});
     await new Promise((listo) => setTimeout(listo, 500));
   }
   if (seguidasSinVer < 2) throw new ErrorReel(`No pude borrar el proyecto de prueba "${titulo}" de Edits.`);
@@ -80,23 +58,21 @@ async function borrarProyectoDePrueba(edits: Edits, titulo: string, antes: Set<s
 
 async function verificar(soloRevisar: boolean) {
   const edits = await conectarConEdits();
-  const { screen } = await edits.usar<{ screen: string }>("appState");
-  if (screen !== "home") {
+  if ((await edits.pantalla()) !== "inicio") {
     throw new ErrorReel("En Edits hay un proyecto abierto. Volvé a la pantalla de inicio de Edits y probá de nuevo. La prueba no tocó nada.");
   }
   console.log("Edits responde");
   if (soloRevisar) return;
 
   const titulo = `prueba-${new Date().toISOString().replace(/\D/g, "").slice(0, 14)}`;
-  const antes = new Set((await proyectosEnEdits(edits)).map((x) => x.id));
+  const antes = new Set((await edits.proyectos()).map((x) => x.id));
   const p = await armarReelDePrueba(titulo);
   let diferencias: string[] = [];
   try {
     await mandarAEdits(p);
     const m = armarMontaje(PLAN);
-    const { elementos, subtitulos } = await lineaDeTiempo(edits);
     const { words } = leerJson<{ words: Palabra[] }>(p.transcripcion);
-    diferencias = diferenciasConEdits(m, elementos, subtitulos, words, PLAN.tramos);
+    diferencias = diferenciasConEdits(m, await edits.elementos(), await edits.subtitulos(), words, PLAN.tramos);
     if (diferencias.length === 0) console.log("Coincide con el plan");
     else console.log(["No coincide con el plan:", ...diferencias.map((d) => `  ${d}`)].join("\n"));
 
@@ -119,5 +95,6 @@ try {
 } catch (e) {
   if (!(e instanceof ErrorReel)) throw e;
   console.error(e.message);
+  if (e instanceof ErrorDeEdits) console.error(`Detalle: ${e.motivo}`);
   process.exitCode = 1;
 }
