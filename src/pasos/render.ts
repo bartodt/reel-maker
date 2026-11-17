@@ -127,7 +127,7 @@ export async function render(p: Proyecto, log = console.log) {
 
   // Música con ducking: baja sola cuando se habla (la voz en off o alguien en un clip)
   if (p.musica) {
-    entradas.push("-stream_loop", "-1", "-i", p.musica);
+    entradas.push("-stream_loop", "-1", "-t", duracion.toFixed(3), "-i", p.musica);
     const finMusica = Math.max(0, duracion - 1.5).toFixed(2);
     filtros.push(
       `[dialogo]asplit=2[voz][llave]`,
