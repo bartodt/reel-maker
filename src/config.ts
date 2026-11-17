@@ -93,6 +93,9 @@ export const EDITS = {
   url: "http://127.0.0.1:19501/mcp",
   // Edits solo puede abrir archivos de la carpeta Películas: el material del reel se copia acá (o a EDITS_CARPETA)
   carpeta: "~/Movies/reel-maker",
+  // Segundos que se espera cada respuesta de Edits antes de darlo por colgado (o EDITS_ESPERA).
+  // Con la Mac muy cargada Edits tardó unos 100 s en avisar que no pudo abrir un proyecto nuevo.
+  esperaMaxima: 180,
   textos: {
     tamano: 38,
     // Posición del centro del texto: 0 a 1, de izquierda a derecha y de arriba a abajo
