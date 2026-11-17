@@ -118,9 +118,9 @@ async function correrUna(f: FichaReferencia, corrida: string, repo: string) {
   const registro = path.join(corrida, "claude", `${f.nombre}.jsonl`);
   console.log(`${f.nombre}: Claude arma el plan desde ${new Date().toISOString()} (registro en ${registro})`);
   const codigo = await pedirElPlan(p, repo, registro);
-  const r = leerRegistro(registro, [p.raiz, path.join(repo, ".claude", "skills", "reel")]);
+  const r = leerRegistro(registro, [p.raiz, repo]);
   console.log(`${f.nombre}: Claude (${r.modelo}) terminó en ${r.minutos.toFixed(1)} min${r.error || codigo !== 0 ? `, con error (código ${codigo})` : ""}`);
-  console.log(r.fuera.size ? `${f.nombre}: miró fuera de su carpeta y de la skill:\n  ${[...r.fuera].join("\n  ")}` : `${f.nombre}: a ciegas, no miró nada fuera de su carpeta ni de la skill`);
+  console.log(r.fuera.size ? `${f.nombre}: miró fuera de su carpeta y de la copia del repo:\n  ${[...r.fuera].join("\n  ")}` : `${f.nombre}: a ciegas, no miró nada fuera de su carpeta ni de la copia del repo`);
   if (!existsSync(p.plan)) throw new ErrorReel(`${f.nombre}: Claude no escribió edit/plan.json. Mirá ${registro}`);
 }
 
