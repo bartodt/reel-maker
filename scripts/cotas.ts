@@ -8,6 +8,7 @@ import { info } from "../src/lib/ffmpeg.js";
 import { duracionEnPantalla, esSinVoz, type Plan, type Tramo } from "../src/lib/plan.js";
 import { EXT_VIDEO, guardarJson, leerJson } from "../src/lib/proyecto.js";
 import { leerReferencias, type FichaReferencia } from "../src/lib/referencias.js";
+import { agruparFrases, type Palabra } from "../src/lib/transcripcion.js";
 import { medir } from "../src/pasos/medir.js";
 
 const SEMILLAS = 20;
@@ -20,6 +21,7 @@ interface Material {
   referencia: Referencia;
   clips: ClipDisponible[];
   duracionVoz: number;
+  frases: number[];
 }
 
 async function leerMaterial(ficha: FichaReferencia): Promise<Material> {
@@ -30,7 +32,9 @@ async function leerMaterial(ficha: FichaReferencia): Promise<Material> {
   const clips = await Promise.all(archivos.map(async (archivo) => ({ archivo, duracion: (await info(path.join(carpeta, archivo))).duracion })));
   const referencia = leerJson<Referencia>(ficha.archivoPlan);
   const duracionVoz = Math.max(...referencia.tramos.map((t) => (esSinVoz(t) ? 0 : t.hasta)));
-  return { ficha, referencia, clips, duracionVoz };
+  const { words } = leerJson<{ words: Palabra[] }>(path.join(ficha.carpeta, "edit", "transcripcion.json"));
+  const frases = agruparFrases(words).slice(1).map((f) => f.desde);
+  return { ficha, referencia, clips, duracionVoz, frases };
 }
 
 function copiarPorOrdenDeFilmacion(origen: Material, destino: Material): Plan {
@@ -70,6 +74,7 @@ function armarCorridas(materiales: Material[]): Record<string, Record<string, Pl
     porReferencia(`azar-${s}`, (m, i) => { const azar = mulberry32(s * 100 + i); return planAlAzar(m.duracionVoz, cortesAlAzar(m, azar), m.clips, azar); });
     porReferencia(`azar-con-sus-cortes-${s}`, (m, i) => planAlAzar(m.duracionVoz, cortesEnLaVoz(m.referencia.tramos), m.clips, mulberry32(s * 100 + i)));
     porReferencia(`cada-${CADA}-s-${s}`, (m, i) => planAlAzar(m.duracionVoz, cadaTanto(m), m.clips, mulberry32(s * 100 + i)));
+    porReferencia(`en-cada-frase-${s}`, (m, i) => planAlAzar(m.duracionVoz, m.frases, m.clips, mulberry32(s * 100 + i)));
   }
   const masClips = Math.max(...materiales.map((m) => m.clips.length));
   for (let k = 0; k < masClips; k++) {
@@ -94,6 +99,7 @@ function resumir(medidas: Record<string, Fila[]>, materiales: Material[]) {
     [`azar (${SEMILLAS} semillas)`, /^azar-\d+$/],
     [`azar con los cortes de la referencia (${SEMILLAS})`, /^azar-con-sus-cortes-/],
     [`corte cada ${CADA} s, clips al azar (${SEMILLAS})`, /^cada-/],
+    [`corte en cada frase, clips al azar (${SEMILLAS})`, /^en-cada-frase-/],
     ["un solo clip, todos los clips", /^un-clip-/],
     ["copia de Pancho y Coca", /^copia-/],
   ];
